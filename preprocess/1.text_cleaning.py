@@ -12,6 +12,17 @@ import sys
 import json
 import collections
 
+# remove space
+spaces = {'\u200b', '\u200e', '\u202a', '\u202c', '\ufeff', '\uf0d8', '\u2061', '\x10', '\x7f', '\x9d', '\xad', '\xa0'}
+
+
+def _remove_space(text):
+    for space in spaces:
+        text = text.replace(space, ' ')
+    text = text.strip()
+    text = re.sub('\s+', ' ', text)
+    return text
+
 
 def _remove_html_tag(text):
     cleanr = re.compile('<.*?>')
@@ -27,6 +38,7 @@ remove_regx_map = collections.OrderedDict({
     r'("""|＃|＄|％|＆|＇|（|）|＊|＋|，|－|／|：|；|＜|＝|＞|＠|［|＼|］|＾|＿|｀|｛|｜|｝|～|｟|｠|｢|｣|､|　|、|〃|〈|〉|《|》|'
     r'「|」|『|』|【|】|〔|〕|〖|〗|〘|〙|〚|〛|〜|〝|〞|〟|〰|〾|〿|–|—|‘|’|‛|“|”|„|‟|…|‧|﹏|﹑|﹔|·|！|？|｡|。)\1{1,}': '\g<1>',
 })
+
 
 def _remove_by_regex(text):
     text = text.strip()
@@ -45,7 +57,7 @@ def _url_mapping(text):
     return re.sub(URL_REGEX, URL_MAPED_STRING, text)
 
 
-def clean_document(document, answers):
+def clean_document(document, answers=None):
     title = document['title']
     paragraphs = document['paragraphs']
 
@@ -59,7 +71,7 @@ def clean_document(document, answers):
         title = ''.join(title.split('-')[:-1])
 
     # --------------------- clean paragraphs ---------------------
-    ans_has_html = re.match('<[a-zA-Z]+>', ''.join(answers), flags=0) is not None
+    # ans_has_html = re.match('<[a-zA-Z]+>', ''.join(answers), flags=0) is not None
 
     new_paragraphs = []
     for paragraph in paragraphs:
@@ -67,32 +79,37 @@ def clean_document(document, answers):
         paragraph = _url_mapping(paragraph)
 
         # 如果答案包含标签则不清洗html标签
-        if not ans_has_html:
-            paragraph = _remove_html_tag(paragraph)
+        # if not ans_has_html:
+        paragraph = _remove_html_tag(paragraph)
 
+        paragraph = _remove_space(paragraph)
         if paragraph != '':
             new_paragraphs.append(paragraph)
 
-    document['title'] = title
+    document['title'] = _remove_space(title)
     document['paragraphs'] = new_paragraphs
 
     return document
 
 
 def clean_sample(sample):
-    question = sample['question']
+    question = sample['question'].strip()
     documents = sample['documents']
-    answers = sample['answers']
 
-    documents = [clean_document(document, answers) for document in documents]
+    if not question or not len(documents):
+        return False
 
-    sample['question'] = question
+    if 'answers' in sample and not len(sample['answers']):
+        return False
+
+    documents = [clean_document(document) for document in documents]
+
     sample['documents'] = documents
-    sample['answers'] = answers
+    return True
 
 
 if __name__ == '__main__':
     for line in sys.stdin:
         sample = json.loads(line.strip())
-        clean_sample(sample)
-        print(json.dumps(sample, ensure_ascii=False))
+        if clean_sample(sample):
+            print(json.dumps(sample, ensure_ascii=False))

@@ -11,3 +11,18 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/4/5 14:22
 """
+import re
+import sys
+import json
+import collections
+
+
+def extract_paragraph(sample):
+    pass
+
+
+if __name__ == '__main__':
+    for line in sys.stdin:
+        sample = json.loads(line.strip())
+        extract_paragraph(sample)
+        print(json.dumps(sample, ensure_ascii=False))
