@@ -10,11 +10,18 @@
 import re
 import sys
 import json
+import jieba
 import collections
+import pandas as pd
+import jieba.posseg as pseg
+from jieba.analyse import extract_tags
+
+jieba.load_userdict('./all_url_dict.txt')
+url_map_df = pd.read_csv('url_mapping.csv', encoding='utf-8')
+url_map_dict = dict(zip(url_map_df['url'], url_map_df['url_map_id']))
 
 # remove space
 spaces = {'\u200b', '\u200e', '\u202a', '\u202c', '\ufeff', '\uf0d8', '\u2061', '\x10', '\x7f', '\x9d', '\xad', '\xa0'}
-
 
 def _remove_space(text):
     for space in spaces:
@@ -33,7 +40,7 @@ def _remove_html_tag(text):
 remove_regx_map = collections.OrderedDict({
     r'\s+': ' ',
     r'<(\d+)>': '\g<1>',
-    r'步骤阅读': '',
+    r'步骤阅读': '',  # 注意需要针对具体的 case，分析模型预测的答案和实际的答案的差别来进行相应字段的清洗
     r'(\!|\"|\#|\$|\%|\&|\'|\(|\)|\*|\+|\,|\-|\.|\/|\:|\;|\<|\=|\>|\?|\@|\[|\\|\]|\^|\_|\`|\{|\||\}|\~)\1{1,}': '\g<1>',
     r'("""|＃|＄|％|＆|＇|（|）|＊|＋|，|－|／|：|；|＜|＝|＞|＠|［|＼|］|＾|＿|｀|｛|｜|｝|～|｟|｠|｢|｣|､|　|、|〃|〈|〉|《|》|'
     r'「|」|『|』|【|】|〔|〕|〖|〗|〘|〙|〚|〛|〜|〝|〞|〟|〰|〾|〿|–|—|‘|’|‛|“|”|„|‟|…|‧|﹏|﹑|﹔|·|！|？|｡|。)\1{1,}': '\g<1>',
@@ -49,12 +56,12 @@ def _remove_by_regex(text):
     return text
 
 
-URL_REGEX = r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:\'\".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))"""
-URL_MAPED_STRING = 'url'
-
-def _url_mapping(text):
-    """ 删除 url 链接，注意答案中也存在 url """
-    return re.sub(URL_REGEX, URL_MAPED_STRING, text)
+def _url_replace(text):
+    """ url 链接替换，注意答案中也存在 url，预测完答案后再 mapping 回来 """
+    for url in url_map_dict:
+        if url in text:
+            text = text.replace(url, url_map_dict[url])
+    return text
 
 
 def clean_document(document, answers=None):
@@ -75,15 +82,16 @@ def clean_document(document, answers=None):
 
     new_paragraphs = []
     for paragraph in paragraphs:
-        paragraph = _remove_by_regex(paragraph)
-        paragraph = _url_mapping(paragraph)
-
+        paragraph = _url_replace(paragraph)
         # 如果答案包含标签则不清洗html标签
         # if not ans_has_html:
         paragraph = _remove_html_tag(paragraph)
-
+        # 按照正则表达式去除特定文本
+        paragraph = _remove_by_regex(paragraph)
+        # 去除多余的空格
         paragraph = _remove_space(paragraph)
-        if paragraph != '':
+        # 去除空段落和重复段落
+        if paragraph != '' and paragraph not in new_paragraphs:
             new_paragraphs.append(paragraph)
 
     document['title'] = _remove_space(title)
@@ -108,8 +116,40 @@ def clean_sample(sample):
     return True
 
 
+def _nlp_text_analyse(sample):
+    """ 对问题和文章进行中文分词，词性标注和关键词抽取等 """
+    # question
+    sample['segmented_question'], sample['pos_question'] = zip(*list(pseg.cut(sample['question'])))
+
+    # documents
+    new_documents = []
+    for document in sample['documents']:
+        document['segmented_title'], document['pos_title'], document['keyword_title'] = [], [], []
+        if document['title'] != '':
+            document['segmented_title'], document['pos_title'] = zip(*list(pseg.cut(document['title'])))
+            keywords = extract_tags(document['title'], topK=int(len(document['segmented_title']) * 0.8))
+            document['keyword_title'] = [int(word in keywords) for word in document['segmented_title']]
+
+        document['segmented_paragraphs'], document['pos_paragraphs'] = zip(
+            *[zip(*list(pseg.cut(para))) for para in document['paragraphs']]
+        )
+
+        document['keyword_paragraphs'] = []
+        for para_i, seg_para in enumerate(document['segmented_paragraphs']):
+            keywords = extract_tags(document['paragraphs'][para_i], topK=int(len(seg_para) * 0.8))
+            document['keyword_paragraphs'].append([int(word in keywords) for word in document['segmented_title']])
+
+        new_documents.append(document)
+    sample['documents'] = new_documents
+
+    # answer
+    if 'answers' in sample:
+        sample['segmented_answers'] = [list(jieba.cut(answer)) for answer in sample['answers']]
+
+
 if __name__ == '__main__':
     for line in sys.stdin:
         sample = json.loads(line.strip())
         if clean_sample(sample):
+            _nlp_text_analyse(sample)
             print(json.dumps(sample, ensure_ascii=False))
