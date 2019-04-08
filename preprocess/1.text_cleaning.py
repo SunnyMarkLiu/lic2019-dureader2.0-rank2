@@ -82,6 +82,8 @@ def clean_document(document, answers=None):
 
     new_paragraphs = []
     for paragraph in paragraphs:
+        paragraph = paragraph.replace('http：//', 'http://')
+        paragraph = paragraph.replace('https：//', 'https://')
         paragraph = _url_replace(paragraph)
         # 如果答案包含标签则不清洗html标签
         # if not ans_has_html:
