@@ -137,7 +137,7 @@ def _nlp_text_analyse(sample):
         document['keyword_paragraphs'] = []
         for para_i, seg_para in enumerate(document['segmented_paragraphs']):
             keywords = extract_tags(document['paragraphs'][para_i], topK=int(len(seg_para) * 0.8))
-            document['keyword_paragraphs'].append([int(word in keywords) for word in document['segmented_title']])
+            document['keyword_paragraphs'].append([int(word in keywords) for word in document['seg_para']])
 
         new_documents.append(document)
     sample['documents'] = new_documents
