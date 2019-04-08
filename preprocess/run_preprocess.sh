@@ -1,27 +1,54 @@
 #!/usr/bin/env bash
 
+raw_trainset_dir='../input/dureader_2.0/raw/trainset/'
+cleaned_trainset_dir='../input/dureader_2.0/cleaned/trainset/'
+extracted_trainset_dir='../input/dureader_2.0/extracted/trainset/'
+
+raw_devset_dir='../input/dureader_2.0/raw/devset/'
+cleaned_devset_dir='../input/dureader_2.0/cleaned/devset/'
+extracted_devset_dir='../input/dureader_2.0/extracted/devset/'
+
+raw_testset_dir='../input/dureader_2.0/raw/testset/'
+cleaned_testset_dir='../input/dureader_2.0/cleaned/testset/'
+extracted_testset_dir='../input/dureader_2.0/extracted/testset/'
+
+# ---------- Hyperparameters ----------
+MAX_DOC_LEN=500     # Maximum length of document
+MIN_MATCH_SCORE_THRESHOLD=0.02  # Minimum match score between paragraph and question/(question+answer)
+# -------------------------------------
+
 # step 0
 echo 'first fetch all urls, create url mapping, save maped url to word dict...'
 # step 1
-echo '------- text cleaning -------'
+echo '---------------- text cleaning ----------------'
 echo '* text cleaning for trainset'
-cat ../input/dureader_2.0/raw/trainset/search.train.json |python 1.text_cleaning.py > ../input/dureader_2.0/cleaned/trainset/search.train.json
-#cat ../input/dureader_2.0/raw/trainset/zhidao.train.json |python 1.text_cleaning.py > ../input/dureader_2.0/cleaned/trainset/zhidao.train.json
+cat ${raw_trainset_dir}search.train.json |python 1.text_cleaning.py > ${cleaned_trainset_dir}search.train.json
+#cat ${raw_trainset_dir}zhidao.train.json |python 1.text_cleaning.py > ${cleaned_trainset_dir}zhidao.train.json
+
 echo '* text cleaning for devset'
-cat ../input/dureader_2.0/raw/devset/search.dev.json |python 1.text_cleaning.py > ../input/dureader_2.0/cleaned/devset/search.dev.json
-#cat ../input/dureader_2.0/raw/devset/zhidao.dev.json |python 1.text_cleaning.py > ../input/dureader_2.0/cleaned/devset/zhidao.dev.json
+cat ${raw_devset_dir}search.dev.json |python 1.text_cleaning.py > ${cleaned_devset_dir}search.dev.json
+#cat ${raw_devset_dir}zhidao.dev.json |python 1.text_cleaning.py > ${cleaned_devset_dir}zhidao.dev.json
+
 echo '* text cleaning for testset'
-cat ../input/dureader_2.0/raw/testset/search.test1.json |python 1.text_cleaning.py > ../input/dureader_2.0/cleaned/testset/search.test1.json
-#cat ../input/dureader_2.0/raw/testset/zhidao.test1.json |python 1.text_cleaning.py > ../input/dureader_2.0/cleaned/testset/zhidao.test1.json
+cat ${raw_testset_dir}search.test1.json |python 1.text_cleaning.py > ${cleaned_testset_dir}search.test1.json
+#cat ${raw_testset_dir}zhidao.test1.json |python 1.text_cleaning.py > ${cleaned_testset_dir}zhidao.test1.json
 
 # step 2
-echo '------- extract paragraph -------'
+echo '-------------- extract paragraph --------------'
 echo '* extract for trainset'
-cat ../input/dureader_2.0/cleaned/trainset/search.train.json |python 2.extract_paragraph.py > ../input/dureader_2.0/extracted/trainset/search.train.json
-#cat ../input/dureader_2.0/cleaned/trainset/zhidao.train.json |python 2.extract_paragraph.py > ../input/dureader_2.0/extracted/trainset/zhidao.train.json
+cat ${cleaned_trainset_dir}search.train.json |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD}\
+        > ${extracted_trainset_dir}search.train.json
+#cat ${cleaned_trainset_dir}zhidao.train.json |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD}\
+#        > ${extracted_trainset_dir}zhidao.train.json
+
 echo '* extract for devset'
-cat ../input/dureader_2.0/cleaned/devset/search.train.json |python 2.extract_paragraph.py > ../input/dureader_2.0/extracted/devset/search.train.json
-#cat ../input/dureader_2.0/cleaned/devset/zhidao.train.json |python 2.extract_paragraph.py > ../input/dureader_2.0/extracted/devset/zhidao.train.json
+cat ${cleaned_devset_dir}search.dev.json |python 2.extract_paragraph.py dev ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD}\
+        > ${extracted_devset_dir}search.dev.json
+#cat ${cleaned_devset_dir}zhidao.train.json |python 2.extract_paragraph.py dev ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD}\
+#        > ${extracted_devset_dir}zhidao.dev.json
+
 echo '* extract for testset'
-cat ../input/dureader_2.0/cleaned/testset/search.train.json |python 2.extract_paragraph.py > ../input/dureader_2.0/extracted/testset/search.train.json
-#cat ../input/dureader_2.0/cleaned/testset/zhidao.train.json |python 2.extract_paragraph.py > ../input/dureader_2.0/extracted/testset/zhidao.train.json
+cat ${cleaned_testset_dir}search.test1.json |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD}\
+        > ${extracted_testset_dir}search.test1.json
+#cat ${cleaned_testset_dir}zhidao.train.json |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD}\
+#        > ${extracted_testset_dir}zhidao.test1.json

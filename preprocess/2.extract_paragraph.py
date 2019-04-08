@@ -96,7 +96,7 @@ def calc_paragraph_match_scores(doc, question, answers=None):
     return match_scores
 
 
-def extract_paragraph(sample, mode):
+def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
     """
     对于训练集，计算每个 doc 的每个段落 para 与 question+answer 的 f1 值
     对于测试集和验证集，计算每个 doc 的每个段落 para 与 question 的 f1 值
@@ -104,9 +104,6 @@ def extract_paragraph(sample, mode):
         sample: a sample in the dataset.
         mode: string of ("train", "dev", "test"), indicate the type of dataset to process.
     """
-    # predefined maximum length of paragraph
-    MAX_DOC_LEN = 500
-
     question = sample['segmented_question']
     if mode == 'train':
         answers = sample['segmented_answers']
@@ -121,28 +118,31 @@ def extract_paragraph(sample, mode):
             # ((段落匹配得分，段落长度)，段落的原始下标)
             para_infos.append((para_score, len(para_tokens), p_idx))
 
-        # 依据 MAX_DOC_LEN 选择 para 的原始 id，注意拼接上 title
-        total_doc_len = sum([para_info[1] for para_info in para_infos]) + len(doc['segmented_title'])
         last_para_id = -1
         last_para_cut_idx = -1
-        if total_doc_len <= MAX_DOC_LEN:
-            selected_para_ids = range(len(para_infos))
-        else:
-            # 按照 match_score 降序排列，按照段落长度升序排列
-            para_infos.sort(key=lambda x: (-x[0], x[1]))
+        selected_para_ids = []
 
-            selected_para_ids = []
-            selected_para_len = len(doc['segmented_title'])  # 注意拼接上 title
-            for para_info in para_infos:
-                para_id = para_info[-1]
-                selected_para_len += len(doc['segmented_paragraphs'][para_id])
-                if selected_para_len <= MAX_DOC_LEN:
-                    selected_para_ids.append(para_id)
-                else:
-                    # 对于超出最大 doc 长度的，截取到最大长度，baseline选取 top3，可能筛掉了答案所在的段落
-                    last_para_id = para_id
-                    last_para_cut_idx = MAX_DOC_LEN - selected_para_len
-                    break
+        # 按照 match_score 降序排列，按照段落长度升序排列
+        para_infos.sort(key=lambda x: (-x[0], x[1]))
+
+        selected_para_len = len(doc['segmented_title'])  # 注意拼接上 title
+        for para_info in para_infos:
+            # 过滤掉匹配得分小于阈值的段落
+            if para_info[0] < match_score_threshold:
+                continue
+
+            para_id = para_info[-1]
+            selected_para_len += len(doc['segmented_paragraphs'][para_id])
+            if selected_para_len <= max_doc_len:
+                selected_para_ids.append(para_id)
+            else:
+                # 对于超出最大 doc 长度的，截取到最大长度，baseline选取 top3，可能筛掉了答案所在的段落
+                last_para_id = para_id
+                last_para_cut_idx = max_doc_len - selected_para_len
+                break
+
+        # para 原始顺序
+        selected_para_ids.sort()
 
         segmented_paragraphs = [doc['segmented_paragraphs'][i] for i in selected_para_ids]
         paragraph_match_scores = [para_match_scores[i] for i in selected_para_ids]
@@ -170,7 +170,10 @@ def extract_paragraph(sample, mode):
 if __name__ == '__main__':
     # mode="train"/"dev"/"test"
     mode = sys.argv[1]
+    max_doc_len = int(sys.argv[2])
+    match_score_threshold = float(sys.argv[3])
+
     for line in sys.stdin:
         sample = json.loads(line.strip())
-        extract_paragraph(sample, mode)
+        extract_paragraph(sample, mode, max_doc_len, match_score_threshold)
         print(json.dumps(sample, ensure_ascii=False))
