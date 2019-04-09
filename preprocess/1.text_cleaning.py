@@ -122,6 +122,8 @@ def _nlp_text_analyse(sample):
     """ 对问题和文章进行中文分词，词性标注和关键词抽取等 """
     # question
     sample['segmented_question'], sample['pos_question'] = zip(*list(pseg.cut(sample['question'])))
+    keywords = extract_tags(sample['question'], topK=int(len(sample['segmented_question']) * 0.8))
+    sample['keyword_question'] = [int(word in keywords) for word in sample['segmented_question']]
 
     # documents
     new_documents = []

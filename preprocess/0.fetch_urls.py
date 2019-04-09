@@ -42,13 +42,13 @@ def _fetch_urls(text):
         all_urls.extend(valid_urls)
 
 for raw_f in ['../input/dureader_2.0/raw/trainset/search.train.json',
-              '../input/dureader_2.0/raw/trainset/zhidao.train.json',
+              # '../input/dureader_2.0/raw/trainset/zhidao.train.json',
               '../input/dureader_2.0/raw/devset/search.dev.json',
-              '../input/dureader_2.0/raw/devset/zhidao.dev.json',
+              # '../input/dureader_2.0/raw/devset/zhidao.dev.json',
               '../input/dureader_2.0/raw/testset/search.test1.json',
-              '../input/dureader_2.0/raw/testset/zhidao.test1.json'
+              # '../input/dureader_2.0/raw/testset/zhidao.test1.json'
               ]:
-    print('process', raw_f)
+    print('* process', raw_f)
     with open(raw_f, 'r', encoding='utf-8') as f:
         for line in f:
             sample = json.loads(line.strip())
