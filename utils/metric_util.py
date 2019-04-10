@@ -78,6 +78,8 @@ def metric_max_over_ground_truths(f1_score_fn, bleu4_fn, prediction, ground_trut
         f1 = f1_score_fn(prediction, ground_truth)
         f1_for_ground_truths.append(f1)
 
+    # 为了综合考虑多个answer，此处将 max 改为 mean
+    # max_f1 = sum(f1_for_ground_truths) / len(f1_for_ground_truths)
     max_f1 = max(f1_for_ground_truths)
     if bleu4_fn is not None:
         bleu = bleu4_fn(prediction, ground_truths)

@@ -77,20 +77,22 @@ def gen_trainable_dataset(sample, debug=False):
                     best_match_end_idx = end_idx + para_offset_len
                     best_fake_answer = span_tokens
 
-    # 根据 offset 计算真实的 start 和 end
-    offset_len = sum(len(sample['documents'][doc_id]['segmented_passage']) for doc_id in range(best_match_doc_id))
-    best_match_doc_idx = (best_match_start_idx + offset_len, best_match_end_idx + offset_len)
+    best_start_end_idx = [best_match_start_idx, best_match_end_idx]
 
-    trainable_sample['best_match_doc_id'] = best_match_doc_id
-    trainable_sample['labels'] = best_match_doc_idx
-    trainable_sample['fake_answer'] = best_fake_answer
+    trainable_sample['gold_answer'] = {
+        'best_match_doc_id': best_match_doc_id,
+        'best_match_score': best_match_score,
+        'labels': best_start_end_idx,
+        'fake_answer': best_fake_answer
+    }
 
     if debug:
         passage = []
         for doc in trainable_sample['documents']:
             passage += doc['segmented_passage']
 
-        fake_answer = ''.join(passage[best_match_doc_idx[0]: best_match_doc_idx[1]+1])
+        fake_answer = ''.join(sample['documents'][best_match_doc_id]['segmented_passage']\
+                                  [best_start_end_idx[0]: best_start_end_idx[1]+1])
 
         print('fake answer:')
         print(fake_answer)
@@ -99,6 +101,64 @@ def gen_trainable_dataset(sample, debug=False):
             ans = ''.join(ans)
             print(ans)
         print()
+
+    # 为每个answer生成对应的 best_match_doc、labels和 fake answer
+    multi_best_match_doc_ids = []
+    multi_best_start_end_idx = []
+    multi_best_fake_answers = []
+    multi_best_match_score = []
+
+    for answer in sample['segmented_answers']:
+        if answer == '': continue
+
+        ques_answers = [sample['segmented_question'] + answer]
+
+        best_match_score = 0
+        best_match_doc_id = -1
+        best_match_start_idx = -1
+        best_match_end_idx = -1
+        best_fake_answer = ''
+        for doc_id, doc in enumerate(sample['documents']):
+            if not doc['is_selected']:
+                continue
+
+            # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
+            paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
+            most_related_para_id = doc['most_related_para_id']
+            most_related_para_tokens = paras[most_related_para_id]
+
+            para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
+
+            for start_idx in range(len(most_related_para_tokens)):
+                if most_related_para_tokens[start_idx] not in answer_tokens:
+                    continue
+
+                for end_idx in range(len(most_related_para_tokens) - 1, start_idx - 1, -1):
+                    if most_related_para_tokens[end_idx] not in answer_tokens:
+                        continue
+
+                    span_tokens = most_related_para_tokens[start_idx: end_idx + 1]
+                    # 构造 MRC 数据集的时候只采用 f1，bleu计算太慢
+                    match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answers)
+
+                    if match_score > best_match_score:
+                        best_match_score = match_score
+                        best_match_doc_id = doc_id
+                        best_match_start_idx = start_idx + para_offset_len
+                        best_match_end_idx = end_idx + para_offset_len
+                        best_fake_answer = span_tokens
+
+        multi_best_match_score.append(best_match_score)
+        multi_best_match_doc_ids.append(best_match_doc_id)
+        multi_best_start_end_idx.append([best_match_start_idx, best_match_end_idx])
+        multi_best_fake_answers.append(best_fake_answer)
+
+    trainable_sample['multi_answers'] = {
+        'best_match_doc_id': multi_best_match_doc_ids,
+        'best_match_score': multi_best_match_score,
+        'labels': multi_best_start_end_idx,
+        'fake_answer': multi_best_fake_answers
+    }
 
     return trainable_sample
 

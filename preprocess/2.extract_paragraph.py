@@ -35,7 +35,7 @@ def calc_paragraph_match_scores(doc, ques_answers):
 
 def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
     """
-    对于训练集，计算每个 doc 的每个段落 para 与 question+answer 的 f1 值
+    对于训练集，计算每个 doc 的每个段落 para 与 question+answers 的 f1 值
     对于测试集和验证集，计算每个 doc 的每个段落 para 与 question 的 f1 值
     Args:
         sample: a sample in the dataset.
