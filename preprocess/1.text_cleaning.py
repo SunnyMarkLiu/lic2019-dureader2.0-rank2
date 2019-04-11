@@ -14,11 +14,13 @@ import jieba
 import collections
 import pandas as pd
 import jieba.posseg as pseg
-from jieba.analyse import extract_tags
+from utils.jieba_util import WordSegmentPOSKeywordExtractor
+
 
 jieba.load_userdict('./all_url_dict.txt')
 url_map_df = pd.read_csv('url_mapping.csv', encoding='utf-8')
 url_map_dict = dict(zip(url_map_df['url'], url_map_df['url_map_id']))
+jieba_extractor = WordSegmentPOSKeywordExtractor()
 
 # remove space
 spaces = {'\u200b', '\u200e', '\u202a', '\u202c', '\ufeff', '\uf0d8', '\u2061', '\x10', '\x7f', '\x9d', '\xad', '\xa0'}
@@ -121,30 +123,26 @@ def clean_sample(sample):
 def _nlp_text_analyse(sample):
     """ 对问题和文章进行中文分词，词性标注和关键词抽取等 """
     # question
-    sample['segmented_question'], sample['pos_question'] = zip(*list(pseg.cut(sample['question'])))
-    keywords = extract_tags(sample['question'], topK=int(len(sample['segmented_question']) * 0.8))
-    sample['keyword_question'] = [int(word in keywords) for word in sample['segmented_question']]
+    sample['segmented_question'], sample['pos_question'], sample['keyword_question'] = \
+        jieba_extractor.extract_sentence(sample['question'], keyword_ratios=0.6)
 
     # documents
     new_documents = []
     for document in sample['documents']:
-        document['segmented_title'], document['pos_title'], document['keyword_title'] = [], [], []
-        if document['title'] != '':
-            document['segmented_title'], document['pos_title'] = zip(*list(pseg.cut(document['title'])))
-            keywords = extract_tags(document['title'], topK=int(len(document['segmented_title']) * 0.8))
-            document['keyword_title'] = [int(word in keywords) for word in document['segmented_title']]
-
         if len(document['paragraphs']) == 0:
             continue
 
-        document['segmented_paragraphs'], document['pos_paragraphs'] = zip(
-            *[zip(*list(pseg.cut(para))) for para in document['paragraphs']]
-        )
+        document['segmented_title'], document['pos_title'], document['keyword_title'] = [], [], []
+        if document['title'] != '':
+            document['segmented_title'], document['pos_title'], document['keyword_title'] = \
+                jieba_extractor.extract_sentence(sample['title'], keyword_ratios=0.6)
 
-        document['keyword_paragraphs'] = []
-        for para_i, seg_para in enumerate(document['segmented_paragraphs']):
-            keywords = extract_tags(document['paragraphs'][para_i], topK=int(len(seg_para) * 0.8))
-            document['keyword_paragraphs'].append([int(word in keywords) for word in seg_para])
+        document['segmented_paragraphs'], document['pos_paragraphs'], document['keyword_paragraphs'] = [], [], []
+        for para in document['paragraphs']:
+            seg_para, pos_para, keyword_para = jieba_extractor.extract_sentence(para, keyword_ratios=0.4)
+            document['segmented_paragraphs'].append(seg_para)
+            document['pos_paragraphs'].append(pos_para)
+            document['keyword_paragraphs'].append(keyword_para)
 
         new_documents.append(document)
     sample['documents'] = new_documents
@@ -159,4 +157,4 @@ if __name__ == '__main__':
         sample = json.loads(line.strip())
         if clean_sample(sample):
             _nlp_text_analyse(sample)
-            # print(json.dumps(sample, ensure_ascii=False))
+            print(json.dumps(sample, ensure_ascii=False))
