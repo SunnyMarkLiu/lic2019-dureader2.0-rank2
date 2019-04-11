@@ -134,6 +134,9 @@ def _nlp_text_analyse(sample):
             keywords = extract_tags(document['title'], topK=int(len(document['segmented_title']) * 0.8))
             document['keyword_title'] = [int(word in keywords) for word in document['segmented_title']]
 
+        if len(document['paragraphs']) == 0:
+            continue
+
         document['segmented_paragraphs'], document['pos_paragraphs'] = zip(
             *[zip(*list(pseg.cut(para))) for para in document['paragraphs']]
         )
@@ -156,4 +159,4 @@ if __name__ == '__main__':
         sample = json.loads(line.strip())
         if clean_sample(sample):
             _nlp_text_analyse(sample)
-            print(json.dumps(sample, ensure_ascii=False))
+            # print(json.dumps(sample, ensure_ascii=False))
