@@ -53,17 +53,16 @@ def gen_trainable_dataset(sample, debug=False):
         if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
             continue
 
-        # # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
-        # paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
-        # most_related_para_id = doc['most_related_para_id']
-        # if doc['segmented_passage'][0] == '<splitter>':     # doc 的 title 为空，但多了个 <splitter>
-        #     most_related_para_id -= 1
-        # most_related_para_tokens = paras[most_related_para_id]
-        #
-        # para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
+        # 如果答案直接在原文中，则直接定位
+        # for answer in sample['segmented_answers']:
+        #     if ''.join(answer) in ''.join(doc['segmented_passage']):
+        #         best_match_start_idx = doc['segmented_passage'].index(answer)
+        #         best_match_end_idx = best_match_start_idx + len(answer)
+        #         break
 
         # 标题不检索
-        from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
+        # from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
+        from_start = 0
         for start_idx in range(from_start, len(doc['segmented_passage'])):
             if doc['segmented_passage'][start_idx] not in answer_tokens:
                 continue
@@ -130,17 +129,9 @@ def gen_trainable_dataset(sample, debug=False):
             if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
                 continue
 
-            # # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
-            # paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
-            # most_related_para_id = doc['most_related_para_id']
-            # if doc['segmented_passage'][0] == '<splitter>':  # doc 的 title 为空，但多了个 <splitter>
-            #     most_related_para_id -= 1
-            # most_related_para_tokens = paras[most_related_para_id]
-            #
-            # para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
-
             # 标题不检索
-            from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
+            # from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
+            from_start = 0
             for start_idx in range(from_start, len(doc['segmented_passage'])):
                 if doc['segmented_passage'][start_idx] not in answer_tokens:
                     continue

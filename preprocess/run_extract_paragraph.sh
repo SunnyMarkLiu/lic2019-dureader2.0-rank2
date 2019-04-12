@@ -3,7 +3,7 @@
 # ---------- Hyperparameters ----------
 MAX_DOC_LEN=500     # Maximum length of document
 # Minimum match score between paragraph and question/(question+answer)
-MIN_MATCH_SCORE_THRESHOLD=1e-100
+MIN_MATCH_SCORE_THRESHOLD=0
 
 #------------------------ extract cleaned train paragraph ------------------------
 source_cleaned_dir='../input/dureader_2.0/cleaned/trainset/'

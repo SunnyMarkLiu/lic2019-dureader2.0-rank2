@@ -12,7 +12,7 @@ from jieba.analyse.tfidf import TFIDF
 
 class WordSegmentPOSKeywordExtractor(TFIDF):
 
-    def extract_sentence(self, sentence, keyword_ratios=0.8):
+    def extract_sentence(self, sentence, keyword_ratios=None):
         """
         Extract keywords from sentence using TF-IDF algorithm.
         Parameter:
@@ -32,14 +32,17 @@ class WordSegmentPOSKeywordExtractor(TFIDF):
                 continue
             freq[wc] = freq.get(wc, 0.0) + 1.0
 
-        total = sum(freq.values())
-        for k in freq:
-            freq[k] *= self.idf_freq.get(k, self.median_idf) / total
+        if keyword_ratios is not None and keyword_ratios > 0:
+            total = sum(freq.values())
+            for k in freq:
+                freq[k] *= self.idf_freq.get(k, self.median_idf) / total
 
-        tags = sorted(freq, key=freq.__getitem__, reverse=True)
-        top_k = int(keyword_ratios * len(seg_words))
-        tags = tags[:top_k]
+            tags = sorted(freq, key=freq.__getitem__, reverse=True)
+            top_k = int(keyword_ratios * len(seg_words))
+            tags = tags[:top_k]
 
-        key_words = [int(word in tags) for word in seg_words]
+            key_words = [int(word in tags) for word in seg_words]
 
-        return seg_words, pos_words, key_words
+            return seg_words, pos_words, key_words
+        else:
+            return seg_words

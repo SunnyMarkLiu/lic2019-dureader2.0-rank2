@@ -17,6 +17,8 @@ import jieba
 import collections
 import pandas as pd
 from utils.jieba_util import WordSegmentPOSKeywordExtractor
+import warnings
+warnings.filterwarnings("ignore")
 
 jieba.load_userdict('./all_url_dict.txt')
 url_map_df = pd.read_csv('url_mapping.csv', encoding='utf-8')
@@ -150,7 +152,7 @@ def _nlp_text_analyse(sample):
 
     # answer
     if 'answers' in sample:
-        sample['segmented_answers'] = [list(jieba.cut(answer)) for answer in sample['answers']]
+        sample['segmented_answers'] = [list(jieba_extractor.extract_sentence(answer)) for answer in sample['answers']]
 
 
 if __name__ == '__main__':

@@ -7,9 +7,10 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/4/9 11:51
 """
-import nltk
+from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 from collections import Counter
 
+bleu_smoothing_function = SmoothingFunction().method1
 
 def _precision_recall_f1(prediction, ground_truth):
     """
@@ -61,11 +62,7 @@ def bleu_4(prediction, ground_truths):
     if len(prediction) == 0 and len(ground_truths) != 0 and sum([len(gt) for gt in ground_truths]) != 0:
         return 0
 
-    if len(prediction) < 4:
-        weights = [1 / len(prediction)] * len(prediction)
-        bleu_score = nltk.translate.bleu_score.sentence_bleu(ground_truths, prediction, weights=weights)
-    else:
-        bleu_score = nltk.translate.bleu_score.sentence_bleu(ground_truths, prediction)
+    bleu_score = sentence_bleu(ground_truths, prediction, smoothing_function=bleu_smoothing_function)
     return bleu_score
 
 
