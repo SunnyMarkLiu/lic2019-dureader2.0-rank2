@@ -53,32 +53,36 @@ def gen_trainable_dataset(sample, debug=False):
         if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
             continue
 
-        # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
-        paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
-        most_related_para_id = doc['most_related_para_id']
-        if doc['segmented_passage'][0] == '<splitter>':     # doc 的 title 为空，但多了个 <splitter>
-            most_related_para_id -= 1
-        most_related_para_tokens = paras[most_related_para_id]
+        # # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
+        # paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
+        # most_related_para_id = doc['most_related_para_id']
+        # if doc['segmented_passage'][0] == '<splitter>':     # doc 的 title 为空，但多了个 <splitter>
+        #     most_related_para_id -= 1
+        # most_related_para_tokens = paras[most_related_para_id]
+        #
+        # para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
 
-        para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
-
-        for start_idx in range(len(most_related_para_tokens)):
-            if most_related_para_tokens[start_idx] not in answer_tokens:
+        # 标题不检索
+        from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
+        for start_idx in range(from_start, len(doc['segmented_passage'])):
+            if doc['segmented_passage'][start_idx] not in answer_tokens:
                 continue
 
-            for end_idx in range(len(most_related_para_tokens) - 1, start_idx - 1, -1):
-                if most_related_para_tokens[end_idx] not in answer_tokens:
+            for end_idx in range(len(doc['segmented_passage']) - 1, start_idx - 1, -1):
+                if doc['segmented_passage'][end_idx] not in answer_tokens:
                     continue
 
-                span_tokens = most_related_para_tokens[start_idx: end_idx + 1]
+                span_tokens = doc['segmented_passage'][start_idx: end_idx + 1]
                 # 构造 MRC 数据集的时候只采用 f1，bleu计算太慢
                 match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answers)
 
                 if match_score > best_match_score:
                     best_match_score = match_score
                     best_match_doc_id = doc_id
-                    best_match_start_idx = start_idx + para_offset_len
-                    best_match_end_idx = end_idx + para_offset_len
+                    # best_match_start_idx = start_idx + para_offset_len
+                    best_match_start_idx = start_idx
+                    # best_match_end_idx = end_idx + para_offset_len
+                    best_match_end_idx = end_idx
                     best_fake_answer = span_tokens
 
     best_start_end_idx = [best_match_start_idx, best_match_end_idx]
@@ -126,32 +130,34 @@ def gen_trainable_dataset(sample, debug=False):
             if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
                 continue
 
-            # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
-            paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
-            most_related_para_id = doc['most_related_para_id']
-            if doc['segmented_passage'][0] == '<splitter>':  # doc 的 title 为空，但多了个 <splitter>
-                most_related_para_id -= 1
-            most_related_para_tokens = paras[most_related_para_id]
+            # # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
+            # paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
+            # most_related_para_id = doc['most_related_para_id']
+            # if doc['segmented_passage'][0] == '<splitter>':  # doc 的 title 为空，但多了个 <splitter>
+            #     most_related_para_id -= 1
+            # most_related_para_tokens = paras[most_related_para_id]
+            #
+            # para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
 
-            para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
-
-            for start_idx in range(len(most_related_para_tokens)):
-                if most_related_para_tokens[start_idx] not in answer_tokens:
+            # 标题不检索
+            from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
+            for start_idx in range(from_start, len(doc['segmented_passage'])):
+                if doc['segmented_passage'][start_idx] not in answer_tokens:
                     continue
 
-                for end_idx in range(len(most_related_para_tokens) - 1, start_idx - 1, -1):
-                    if most_related_para_tokens[end_idx] not in answer_tokens:
+                for end_idx in range(len(doc['segmented_passage']) - 1, start_idx - 1, -1):
+                    if doc['segmented_passage'][end_idx] not in answer_tokens:
                         continue
 
-                    span_tokens = most_related_para_tokens[start_idx: end_idx + 1]
+                    span_tokens = doc['segmented_passage'][start_idx: end_idx + 1]
                     # 构造 MRC 数据集的时候只采用 f1，bleu计算太慢
                     match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answers)
 
                     if match_score > best_match_score:
                         best_match_score = match_score
                         best_match_doc_id = doc_id
-                        best_match_start_idx = start_idx + para_offset_len
-                        best_match_end_idx = end_idx + para_offset_len
+                        best_match_start_idx = start_idx
+                        best_match_end_idx = end_idx
                         best_fake_answer = span_tokens
 
         multi_best_match_score.append(best_match_score)
