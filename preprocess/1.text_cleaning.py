@@ -7,15 +7,16 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/4/5 01:07
 """
+import sys
+sys.path.append('../')
+
 import re
 import sys
 import json
 import jieba
 import collections
 import pandas as pd
-import jieba.posseg as pseg
 from utils.jieba_util import WordSegmentPOSKeywordExtractor
-
 
 jieba.load_userdict('./all_url_dict.txt')
 url_map_df = pd.read_csv('url_mapping.csv', encoding='utf-8')
@@ -135,7 +136,7 @@ def _nlp_text_analyse(sample):
         document['segmented_title'], document['pos_title'], document['keyword_title'] = [], [], []
         if document['title'] != '':
             document['segmented_title'], document['pos_title'], document['keyword_title'] = \
-                jieba_extractor.extract_sentence(sample['title'], keyword_ratios=0.6)
+                jieba_extractor.extract_sentence(document['title'], keyword_ratios=0.6)
 
         document['segmented_paragraphs'], document['pos_paragraphs'], document['keyword_paragraphs'] = [], [], []
         for para in document['paragraphs']:
@@ -154,6 +155,9 @@ def _nlp_text_analyse(sample):
 
 if __name__ == '__main__':
     for line in sys.stdin:
+        if not line.startswith('{'):
+            continue
+
         sample = json.loads(line.strip())
         if clean_sample(sample):
             _nlp_text_analyse(sample)

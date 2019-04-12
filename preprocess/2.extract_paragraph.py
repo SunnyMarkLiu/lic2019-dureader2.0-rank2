@@ -17,6 +17,8 @@ sys.path.append('../')
 import sys
 import json
 from utils.metric_util import metric_max_over_ground_truths, f1_score, bleu_4
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def calc_paragraph_match_scores(doc, ques_answers):
@@ -146,6 +148,9 @@ if __name__ == '__main__':
     match_score_threshold = float(sys.argv[3])
 
     for line in sys.stdin:
+        if not line.startswith('{'):
+            continue
+
         sample = json.loads(line.strip())
         extract_paragraph(sample, mode, max_doc_len, match_score_threshold)
         print(json.dumps(sample, ensure_ascii=False))

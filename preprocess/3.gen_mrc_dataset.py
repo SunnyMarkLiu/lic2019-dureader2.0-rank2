@@ -14,6 +14,8 @@ import sys
 import json
 import itertools
 from utils.metric_util import metric_max_over_ground_truths, f1_score
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def split_list_by_specific_value(iterable, splitters):
@@ -165,6 +167,9 @@ def gen_trainable_dataset(sample, debug=False):
 
 if __name__ == '__main__':
     for line in sys.stdin:
+        if not line.startswith('{'):
+            continue
+
         sample = json.loads(line.strip())
         trainable_sample = gen_trainable_dataset(sample, debug=False)
         print(json.dumps(trainable_sample, ensure_ascii=False))
