@@ -50,12 +50,14 @@ def gen_trainable_dataset(sample, debug=False):
     best_match_end_idx = -1
     best_fake_answer = ''
     for doc_id, doc in enumerate(sample['documents']):
-        if not doc['is_selected']:
+        if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
             continue
 
         # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
         paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
         most_related_para_id = doc['most_related_para_id']
+        if doc['segmented_passage'][0] == '<splitter>':     # doc 的 title 为空，但多了个 <splitter>
+            most_related_para_id -= 1
         most_related_para_tokens = paras[most_related_para_id]
 
         para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id
@@ -121,12 +123,14 @@ def gen_trainable_dataset(sample, debug=False):
         best_match_end_idx = -1
         best_fake_answer = ''
         for doc_id, doc in enumerate(sample['documents']):
-            if not doc['is_selected']:
+            if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
                 continue
 
             # 从段落筛选阶段得到的 paragraph_match_score 的最大值的段落开始检索，优化检索范围
             paras = split_list_by_specific_value(doc['segmented_passage'], (u'<splitter>',))
             most_related_para_id = doc['most_related_para_id']
+            if doc['segmented_passage'][0] == '<splitter>':  # doc 的 title 为空，但多了个 <splitter>
+                most_related_para_id -= 1
             most_related_para_tokens = paras[most_related_para_id]
 
             para_offset_len = sum(len(paras[para_id]) for para_id in range(most_related_para_id)) + most_related_para_id

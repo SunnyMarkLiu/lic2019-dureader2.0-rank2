@@ -43,20 +43,20 @@ nohup cat ${source_cleaned_dir}split_zhidao_13 |python 2.extract_paragraph.py tr
 cleaned_devset_dir='../input/dureader_2.0/cleaned/devset/'
 extracted_devset_dir='../input/dureader_2.0/extracted/devset/'
 
-nohup cat ${cleaned_devset_dir}search.dev.json |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}search.dev.json 2>&1 &
-nohup cat ${cleaned_devset_dir}zhidao.dev.json |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}zhidao.dev.json 2>&1 &
+nohup cat ${cleaned_devset_dir}search.dev.json |python 2.extract_paragraph.py dev ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}search.dev.json 2>&1 &
+nohup cat ${cleaned_devset_dir}zhidao.dev.json |python 2.extract_paragraph.py dev ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}zhidao.dev.json 2>&1 &
 
-nohup cat ${cleaned_devset_dir}18.search.dev.json |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}18.search.dev.json 2>&1 &
-nohup cat ${cleaned_devset_dir}18.zhidao.dev.json |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}18.zhidao.dev.json 2>&1 &
+nohup cat ${cleaned_devset_dir}18.search.dev.json |python 2.extract_paragraph.py dev ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}18.search.dev.json 2>&1 &
+nohup cat ${cleaned_devset_dir}18.zhidao.dev.json |python 2.extract_paragraph.py dev ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${extracted_devset_dir}18.zhidao.dev.json 2>&1 &
 
 #------------------------ extract cleaned dev paragraph ------------------------
 source_cleaned_dir='../input/dureader_2.0/cleaned/testset/'
 target_extracted_dir='../input/dureader_2.0/extracted/testset/'
 
-nohup cat ${source_cleaned_dir}split_search1_00 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_search1_00 2>&1 &
-nohup cat ${source_cleaned_dir}split_search1_01 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_search1_01 2>&1 &
-nohup cat ${source_cleaned_dir}split_search1_02 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_search1_02 2>&1 &
+nohup cat ${source_cleaned_dir}split_search1_00 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_search1_00 2>&1 &
+nohup cat ${source_cleaned_dir}split_search1_01 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_search1_01 2>&1 &
+nohup cat ${source_cleaned_dir}split_search1_02 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_search1_02 2>&1 &
 
-nohup cat ${source_cleaned_dir}split_zhidao1_00 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_zhidao1_00 2>&1 &
-nohup cat ${source_cleaned_dir}split_zhidao1_01 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_zhidao1_01 2>&1 &
-nohup cat ${source_cleaned_dir}split_zhidao1_02 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_zhidao1_02 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao1_00 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_zhidao1_00 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao1_01 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_zhidao1_01 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao1_02 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} ${MIN_MATCH_SCORE_THRESHOLD} > ${target_extracted_dir}split_zhidao1_02 2>&1 &
