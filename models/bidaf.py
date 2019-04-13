@@ -5,7 +5,11 @@
 
 @author: Qing Liu, sunnymarkliu@163.com
 @github: https://github.com/sunnymarkLiu
-@time  : 2019/4/5 01:00
+@time  : 2019/4/11 00:44
 """
-from models.bidaf import BiDAF
-from models.rnet import RNet
+import torch.nn as nn
+
+class BiDAF(nn.Module):
+
+    def forward(self, *input):
+        pass

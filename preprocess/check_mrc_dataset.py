@@ -26,8 +26,10 @@ if __name__ == '__main__':
 
         sample = json.loads(line.strip())
         process_cnt += 1
-        gold_fake_answer = sample['fake_answers']
-        if len(gold_fake_answer) == 0:
+        # gold_fake_answer = sample['fake_answers']
+        # if len(gold_fake_answer) == 0:
+
+        if sample['gold_answer']['fake_answer'] == '':
             empty_gold_fake_sanwer_count += 1
             # print(json.dumps(sample, ensure_ascii=False))
             bad_case_writer.write(json.dumps(sample, ensure_ascii=False) + '\n')

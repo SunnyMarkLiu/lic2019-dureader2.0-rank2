@@ -8,6 +8,7 @@
 @time  : 2019/4/5 16:49
 """
 import sys
+
 sys.path.append('../')
 
 import sys
@@ -15,11 +16,30 @@ import json
 import itertools
 from utils.metric_util import metric_max_over_ground_truths, f1_score
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
 def split_list_by_specific_value(iterable, splitters):
     return [list(g) for k, g in itertools.groupby(iterable, lambda x: x in splitters) if not k]
+
+
+def contain_sublist(passage, answer):
+    start = -1
+    end = -1
+    for i in range(len(passage)):
+        if passage[i] == answer[0]:
+            start = i
+            right = 1
+            while (i + right < len(passage)) and (right < len(answer)) and (passage[i + right] == answer[right]):
+                right += 1
+
+            if right == len(answer):
+                end = i + right - 1
+                break
+
+    return start, end
+
 
 def gen_trainable_dataset(sample, debug=False):
     trainable_sample = {
@@ -38,77 +58,6 @@ def gen_trainable_dataset(sample, debug=False):
 
     trainable_sample['segmented_answers'] = sample['segmented_answers']
 
-    answer_tokens = set()
-    for segmented_answer in sample['segmented_answers']:
-        answer_tokens = answer_tokens | set([token for token in segmented_answer])
-
-    ques_answers = [sample['segmented_question'] + answer for answer in sample['segmented_answers'] if answer != '']
-
-    best_match_score = 0
-    best_match_doc_id = -1
-    best_match_start_idx = -1
-    best_match_end_idx = -1
-    best_fake_answer = ''
-    for doc_id, doc in enumerate(sample['documents']):
-        if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
-            continue
-
-        # 如果答案直接在原文中，则直接定位
-        # for answer in sample['segmented_answers']:
-        #     if ''.join(answer) in ''.join(doc['segmented_passage']):
-        #         best_match_start_idx = doc['segmented_passage'].index(answer)
-        #         best_match_end_idx = best_match_start_idx + len(answer)
-        #         break
-
-        # 标题不检索
-        # from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
-        from_start = 0
-        for start_idx in range(from_start, len(doc['segmented_passage'])):
-            if doc['segmented_passage'][start_idx] not in answer_tokens:
-                continue
-
-            for end_idx in range(len(doc['segmented_passage']) - 1, start_idx - 1, -1):
-                if doc['segmented_passage'][end_idx] not in answer_tokens:
-                    continue
-
-                span_tokens = doc['segmented_passage'][start_idx: end_idx + 1]
-                # 构造 MRC 数据集的时候只采用 f1，bleu计算太慢
-                match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answers)
-
-                if match_score > best_match_score:
-                    best_match_score = match_score
-                    best_match_doc_id = doc_id
-                    # best_match_start_idx = start_idx + para_offset_len
-                    best_match_start_idx = start_idx
-                    # best_match_end_idx = end_idx + para_offset_len
-                    best_match_end_idx = end_idx
-                    best_fake_answer = span_tokens
-
-    best_start_end_idx = [best_match_start_idx, best_match_end_idx]
-
-    trainable_sample['gold_answer'] = {
-        'best_match_doc_id': best_match_doc_id,
-        'best_match_score': best_match_score,
-        'labels': best_start_end_idx,
-        'fake_answer': best_fake_answer
-    }
-
-    if debug:
-        passage = []
-        for doc in trainable_sample['documents']:
-            passage += doc['segmented_passage']
-
-        fake_answer = ''.join(sample['documents'][best_match_doc_id]['segmented_passage']\
-                                  [best_start_end_idx[0]: best_start_end_idx[1]+1])
-
-        print('fake answer:')
-        print(fake_answer)
-        print('true label:')
-        for ans in sample['segmented_answers']:
-            ans = ''.join(ans)
-            print(ans)
-        print()
-
     # 为每个answer生成对应的 best_match_doc、labels和 fake answer
     multi_best_match_doc_ids = []
     multi_best_start_end_idx = []
@@ -116,9 +65,10 @@ def gen_trainable_dataset(sample, debug=False):
     multi_best_match_score = []
 
     for answer in sample['segmented_answers']:
-        if answer == '': continue
+        if answer == '' or len(answer) == 0: continue
 
-        ques_answers = [sample['segmented_question'] + answer]
+        answer_tokens = set([token for token in answer])
+        ques_answer = [sample['segmented_question'] + answer]
 
         best_match_score = 0
         best_match_doc_id = -1
@@ -129,9 +79,18 @@ def gen_trainable_dataset(sample, debug=False):
             if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
                 continue
 
+            # 如果答案是passage的一个子数组，则直接定位
+            sub_start_idx, sub_end_idx = contain_sublist(doc['segmented_passage'], answer)
+            if sub_start_idx != -1 and sub_end_idx != -1:
+                best_match_score = 1
+                best_match_doc_id = doc_id
+                best_match_start_idx = sub_start_idx
+                best_match_end_idx = sub_end_idx
+                best_fake_answer = doc['segmented_passage'][best_match_start_idx: best_match_end_idx + 1]
+                break
+
             # 标题不检索
-            # from_start = doc['segmented_passage'].index('<splitter>') + 1 if '<splitter>' in doc['segmented_passage'] else 0
-            from_start = 0
+            from_start = doc['title_len'] + 1  # from_start = 0 标题参与检索
             for start_idx in range(from_start, len(doc['segmented_passage'])):
                 if doc['segmented_passage'][start_idx] not in answer_tokens:
                     continue
@@ -142,7 +101,7 @@ def gen_trainable_dataset(sample, debug=False):
 
                     span_tokens = doc['segmented_passage'][start_idx: end_idx + 1]
                     # 构造 MRC 数据集的时候只采用 f1，bleu计算太慢
-                    match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answers)
+                    match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answer)
 
                     if match_score > best_match_score:
                         best_match_score = match_score
@@ -151,17 +110,15 @@ def gen_trainable_dataset(sample, debug=False):
                         best_match_end_idx = end_idx
                         best_fake_answer = span_tokens
 
-        multi_best_match_score.append(best_match_score)
         multi_best_match_doc_ids.append(best_match_doc_id)
+        multi_best_match_score.append(best_match_score)
         multi_best_start_end_idx.append([best_match_start_idx, best_match_end_idx])
         multi_best_fake_answers.append(best_fake_answer)
 
-    trainable_sample['multi_answers'] = {
-        'best_match_doc_id': multi_best_match_doc_ids,
-        'best_match_score': multi_best_match_score,
-        'labels': multi_best_start_end_idx,
-        'fake_answer': multi_best_fake_answers
-    }
+    trainable_sample['best_match_doc_ids'] = multi_best_match_doc_ids
+    trainable_sample['best_match_scores'] = multi_best_match_score
+    trainable_sample['answer_labels'] = multi_best_start_end_idx
+    trainable_sample['fake_answers'] = multi_best_fake_answers
 
     return trainable_sample
 

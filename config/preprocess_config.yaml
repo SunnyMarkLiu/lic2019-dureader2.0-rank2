@@ -1,0 +1,11 @@
+mrc_dataset: ../input/dureader_2.0/mrc_dataset
+mrc_data_cache: ../input/dureader_2.0/mrc_data_cache
+data_type: search
+max_p_num: 5
+max_p_len: 500
+max_q_len: 60
+embeddings_file: ../../../pretrained_embeddings/chinese/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5
+min_word_cnt: 2
+embed_size: 300
+stopwords: []
+info: null

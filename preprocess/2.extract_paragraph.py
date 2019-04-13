@@ -130,6 +130,8 @@ def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
         doc['keyword_passage'] = keyword_passage[:-1]
         doc['paragraph_match_score'] = paragraph_match_scores
 
+        doc['title_len'] = len(doc['segmented_title'])
+
         # remove useless infos
         del doc['title']; del doc['paragraphs']; del doc['segmented_title']
         del doc['pos_title']; del doc['keyword_title']; del doc['segmented_paragraphs']
