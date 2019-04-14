@@ -1,16 +1,16 @@
 global:
-  random_seed: 123
+  random_seed: 42
   gpu: 0                # GPU id for training and testing
   num_data_workers: 5   # for data loader
-  model: match-lstm+    # 'match-lstm', 'match-lstm+', 'r-net', 'm-reader' or 'base'
-                        # Note that 'base' model is customized by base_model.yaml
+  model: bidaf    # 'match-lstm', 'match-lstm+', 'r-net', 'm-reader' or 'base'
+  # Note that 'base' model is customized by base_model.yaml
 
 data:
   data_type: search
   mrc_dataset:
-    train_path: input/dureader_2.0/mrc_dataset/trainset/search.train.json
-    dev_path: input/dureader_2.0/mrc_dataset/devset/search.dev.json
-    test_path: input/dureader_2.0/mrc_dataset/testset/search.test1.json
+    train_path: input/dureader_2.0/demo_mrc/trainset/search.train.json
+    dev_path: input/dureader_2.0/demo_mrc/devset/search.dev.json
+    test_path: input/dureader_2.0/demo_mrc/testset/search.test1.json
 
   data_cache_dir: input/dureader_2.0/mrc_data_cache
 
@@ -20,3 +20,14 @@ data:
   max_p_len: 500
   max_q_len: 60
   min_word_cnt: 2
+
+bidaf:  # BiDAF model config
+  embed_dim: 300
+
+train:
+  optimizer: 'adamax'  # adam, sgd, adamax, adadelta(default is adamax)
+  learning_rate: 0.002  # only for sgd
+  clip_grad_norm: 5
+
+  batch_size: 32
+  valid_batch_size: 64

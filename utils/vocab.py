@@ -32,13 +32,12 @@ class Vocab(object):
 
         self.unk_token = '<unk>'  # 对于测试集中的有的词，可能都不存在与 train 的 oov 可训练的词中，统一作为 unk
 
+        self.add(self.unk_token)
+
         for token in self.zero_tokens:
             self.add(token)
 
-        self.add(self.unk_token)
-
         # oov的词用于前面，可用于后期词向量可训练
-        self.oov_word_start_idx = self.get_id(self.unk_token)
         self.oov_word_end_idx = self.get_id(self.unk_token)
 
     def size(self):
@@ -64,6 +63,7 @@ class Vocab(object):
         gets the id of a token, returns the id of unk token if token is not in vocab
         Args:
             token: a string indicating the word
+            all_unk: 所有oov的词是否映射到 <unk>, 默认为 False
         Returns:
             an integer
         """
@@ -72,7 +72,7 @@ class Vocab(object):
         for key in self.translate_word_pipeline(token):
             if key in self.token2id:
                 idx = self.token2id[key]
-                if all_unk and self.oov_word_start_idx < idx <= self.oov_word_end_idx:
+                if all_unk and idx <= self.oov_word_end_idx:
                     idx = self.get_id(self.unk_token)
                 return idx
 
@@ -126,9 +126,9 @@ class Vocab(object):
         # rebuild the token x id map
         self.token2id = {}
         self.id2token = {}
+        self.rebuild_add(self.unk_token)
         for token in self.zero_tokens:
             self.rebuild_add(token)
-        self.rebuild_add(self.unk_token)
         for token in left_tokens:
             self.rebuild_add(token)
 
@@ -225,35 +225,33 @@ class Vocab(object):
         self.token2id = {}
         self.id2token = {}
 
-        # zero words
-        for token in self.zero_tokens:
-            self.rebuild_add(token)
-
         # oov words
         self.rebuild_add(self.unk_token)
         for oov in oov_words:
             self.rebuild_add(oov[0])
-        self.oov_word_start_idx = self.get_id(self.unk_token)  # oov 词开始下标
         self.oov_word_end_idx = self.get_id(oov_words[-1][0])  # oov 词结束下标
+
+        # zero words
+        for token in self.zero_tokens:
+            self.rebuild_add(token)
 
         # not oov words
         for token in not_oov_words:
             self.rebuild_add(token[0])
 
+        # build embedding matrix, random oov words vector
         self.embedding_matrix = np.random.normal(emb_mean, emb_std, (self.size(), self.embed_dim))
 
         # zero words vector
         for zero_token in self.zero_tokens:
             self.embedding_matrix[self.get_id(zero_token)] = np.zeros(shape=self.embed_dim)
 
-        # random oov words vector
-
         # set vectors for not oov words
         for not_oov_word in not_oov_words:
             self.embedding_matrix[self.get_id(not_oov_word[0])] = embedding_matrix_tmp[not_oov_word[1]]
 
         print('Final vocabulary size:', self.size())
-        print(f'trainable oov words start from {self.oov_word_start_idx} to {self.oov_word_end_idx}')
+        print(f'trainable oov words start from 0 to {self.oov_word_end_idx}')
 
     def convert_to_ids(self, tokens, all_unk=False):
         """

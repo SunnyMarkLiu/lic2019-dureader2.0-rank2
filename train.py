@@ -17,7 +17,7 @@ import numpy as np
 from utils.config_util import init_logging, read_config
 from utils.dataset import BRCDataset
 from utils.vocab import Vocab
-
+from models import BiDAF, RNet
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,15 @@ def train(config_path):
     logger.info('loading config file...')
     global_config = read_config(config_path)
 
-    experiment_params = ''
+    experiment_params = 'model-{}_seed{}_data{}_max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}'.format(
+        global_config['global']['model'],
+        global_config['global']['random_seed'],
+        global_config['data']['data_type'],
+        global_config['data']['max_p_num'],
+        global_config['data']['max_p_len'],
+        global_config['data']['max_q_len'],
+        global_config['data']['min_word_cnt']
+    )
 
     # seed everything for torch
     seed_torch(global_config['global']['random_seed'])
@@ -77,11 +85,22 @@ def train(config_path):
         with open(vocab_path, 'rb') as f:
             vocab: Vocab = pickle.load(f)
             logging.info(f'vocabulary size: {vocab.size()}')
-            logging.info(f'trainable oov words start from {vocab.oov_word_start_idx} to {vocab.oov_word_end_idx}')
+            logging.info(f'trainable oov words start from 0 to {vocab.oov_word_end_idx}')
 
     train_brc_dataset.convert_to_ids(vocab)
 
-    logger.info(f"create {global_config['global']['model']} model")
+    model_choose = global_config['global']['model']
+    logger.info(f"create {model_choose} model")
+
+    if model_choose == 'bidf':
+        model = BiDAF()
+    elif model_choose == 'rnet':
+        model = RNet()
+    else:
+        raise ValueError('model "%s" in config file not recoginized' % model_choose)
+
+    model = model.to(device)
+
 
 if __name__ == '__main__':
     init_logging()

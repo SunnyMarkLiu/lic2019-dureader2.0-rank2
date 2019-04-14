@@ -27,6 +27,14 @@ class BRCDataset(object):
         self.max_q_len = max_q_len
         self.badcase_sample_log_file = badcase_sample_log_file
 
+        self.pos_meta_dict = {'vg': 0, 'nrt': 1, 'eng': 2, 'vi': 3, 'p': 4, 'n': 5, 'uj': 6, 'f': 7, 'rz': 8, 'yg': 9,
+                              'uz': 10, 'e': 11, 'nt': 12, 'rr': 13, 'j': 14, 'df': 15, 'ng': 16, 'ad': 17, 'nr': 18,
+                              'vq': 19, 'dg': 20, 'ud': 21, 'o': 22, 'k': 23, 't': 24, 'rg': 25, 'bg': 26, 'ug': 27,
+                              'ag': 28, 'g': 29, '<splitter>': 30, 'r': 31, 'vn': 32, 'ns': 33, 'an': 34, 'b': 35,
+                              'in': 36, 'zg': 37, 'l': 38, 'z': 39, 'c': 40, 'm': 41, 'v': 42, 'x': 43, 'q': 44,
+                              'uv': 45, 'd': 46, 'tg': 47, 'nz': 48, 'h': 49, 'mq': 50, 'nrfg': 51, 'a': 52, 'u': 53,
+                              'i': 54, 'vd': 55, 'mg': 56, 's': 57, 'ul': 58, 'y': 59}
+
         if self.badcase_sample_log_file:
             self.badcase_dumper = open(badcase_sample_log_file, 'w')
 
@@ -130,19 +138,20 @@ class BRCDataset(object):
                     for token in doc['segmented_passage']:
                         yield token
 
-    def convert_to_ids(self, vocab):
+    def convert_to_ids(self, vocab, all_unk=False):
         """
         Convert the question and passage in the original dataset to ids
         Args:
             vocab: the vocabulary on this dataset
+            all_unk: 所有oov的词是否映射到 <unk>, 默认为 False
         """
         for data_set in [self.train_set, self.dev_set, self.test_set]:
             if data_set is None:
                 continue
             for sample in data_set:
-                sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'])
+                sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], all_unk)
                 for doc in sample['documents']:
-                    doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'])
+                    doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], all_unk)
 
     def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True):
         """
@@ -268,13 +277,19 @@ class BRCDataset(object):
         """
         pad_p_len = min(self.max_p_len, max(batch_data['passage_length']))
         pad_q_len = min(self.max_q_len, max(batch_data['question_length']))
-        batch_data['passage_token_ids'] = [(ids + [pad_id] * (pad_p_len - len(ids)))[: pad_p_len] for ids in batch_data['passage_token_ids']]
-        batch_data['question_token_ids'] = [(ids + [pad_id] * (pad_q_len - len(ids)))[: pad_q_len] for ids in batch_data['question_token_ids']]
+        batch_data['passage_token_ids'] = [(ids + [pad_id] * (pad_p_len - len(ids)))[: pad_p_len] for ids in
+                                           batch_data['passage_token_ids']]
+        batch_data['question_token_ids'] = [(ids + [pad_id] * (pad_q_len - len(ids)))[: pad_q_len] for ids in
+                                            batch_data['question_token_ids']]
         # 增加信息
-        batch_data['pos_questions'] = [(pos + [-1] * (pad_q_len - len(pos)))[: pad_q_len] for pos in batch_data['pos_questions']]
-        batch_data['keyword_questions'] = [(key + [-1] * (pad_q_len - len(key)))[: pad_q_len] for key in batch_data['keyword_questions']]
+        batch_data['pos_questions'] = [(pos + [-1] * (pad_q_len - len(pos)))[: pad_q_len] for pos in
+                                       batch_data['pos_questions']]
+        batch_data['keyword_questions'] = [(key + [-1] * (pad_q_len - len(key)))[: pad_q_len] for key in
+                                           batch_data['keyword_questions']]
 
-        batch_data['pos_passages'] = [(pos + [-1] * (pad_p_len - len(pos)))[: pad_p_len] for pos in batch_data['pos_passages']]
-        batch_data['keyword_passages'] = [(key + [-1] * (pad_p_len - len(key)))[: pad_p_len] for key in batch_data['keyword_passages']]
+        batch_data['pos_passages'] = [(pos + [-1] * (pad_p_len - len(pos)))[: pad_p_len] for pos in
+                                      batch_data['pos_passages']]
+        batch_data['keyword_passages'] = [(key + [-1] * (pad_p_len - len(key)))[: pad_p_len] for key in
+                                          batch_data['keyword_passages']]
 
         return batch_data, pad_p_len, pad_q_len
