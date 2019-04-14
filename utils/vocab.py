@@ -5,7 +5,6 @@ load_pretrained_embeddings同样将initial_tokens中所有词随机化而不是�
 暂时取消了随机初始化
 """
 import operator
-
 import numpy as np
 from hanziconv import HanziConv
 from nltk.stem import SnowballStemmer
@@ -60,7 +59,7 @@ class Vocab(object):
 
         return token
 
-    def get_id(self, token):
+    def get_id(self, token, all_unk=False):
         """
         gets the id of a token, returns the id of unk token if token is not in vocab
         Args:
@@ -72,7 +71,10 @@ class Vocab(object):
 
         for key in self.translate_word_pipeline(token):
             if key in self.token2id:
-                return self.token2id[key]
+                idx = self.token2id[key]
+                if all_unk and self.oov_word_start_idx < idx <= self.oov_word_end_idx:
+                    idx = self.get_id(self.unk_token)
+                return idx
 
         # 对于 dev 和 test 中的 token，可能不在依据 train 构建的词典中，统一返回 unk
         return self.token2id[self.unk_token]
@@ -156,7 +158,7 @@ class Vocab(object):
 
         embeddings_index = dict(get_coefs(*o.strip().split(" ")) for o in open(filepath) if len(o) > 100)
 
-        all_embs = np.stack(embeddings_index.values())
+        all_embs = np.stack(list(embeddings_index.values())[:100])
         emb_mean, emb_std = all_embs.mean(), all_embs.std()
         embed_dim = all_embs.shape[1]
 
@@ -216,7 +218,7 @@ class Vocab(object):
         print('Found embeddings for {:.6%} of all text'.format(oov_text_count / sum(self.token_cnt.values())))
         print('Save out of vocabulary words:')
         oov_words = sorted(oov_words, key=operator.itemgetter(2))[::-1]
-        with open('../logs/oov_words.txt', 'w') as oov_writer:
+        with open('logs/oov_words.txt', 'w') as oov_writer:
             oov_writer.writelines([oov[0] + '\t' + str(oov[2])+ '\n' for oov in oov_words])
 
         print('Move oov words ahead and rebuild the token x id map')
@@ -253,13 +255,14 @@ class Vocab(object):
         print('Final vocabulary size:', self.size())
         print(f'trainable oov words start from {self.oov_word_start_idx} to {self.oov_word_end_idx}')
 
-    def convert_to_ids(self, tokens):
+    def convert_to_ids(self, tokens, all_unk=False):
         """
         Convert a list of tokens to ids, use unk_token if the token is not in vocab.
         Args:
             tokens: a list of token
+            all_unk: 所有oov的词是否映射到 <unk>, 默认为 False
         Returns:
             a list of ids
         """
-        vec = [self.get_id(token) for token in tokens]
+        vec = [self.get_id(token, all_unk) for token in tokens]
         return vec
