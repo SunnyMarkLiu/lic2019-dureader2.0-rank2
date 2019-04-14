@@ -18,6 +18,7 @@ import yaml
 from pprint import pprint
 from utils.dataset import BRCDataset
 from utils.vocab import Vocab
+import json
 
 
 def prepare_dureader(input_dir,
@@ -30,8 +31,6 @@ def prepare_dureader(input_dir,
                      embed_size,
                      embeddings_file,
                      train_badcase_save_file,
-                     dev_badcase_save_file,
-                     test_badcase_save_file,
                      stopwords=[],
                      word_translate_pipeline=[],
                      info=''):
@@ -78,27 +77,28 @@ def prepare_dureader(input_dir,
     vocab.filter_tokens_by_cnt(min_cnt=min_word_cnt)
     filtered_num = unfiltered_vocab_size - vocab.size()
     print(f'Original vocab size: {unfiltered_vocab_size}')
-    print(f'filter word_cnt<{min_word_cnt}: {filtered_num}')
-    print(f'Final vocab size is {vocab.size()}')
+    print(f'filter word_cnt<{min_word_cnt}: {filtered_num}, left: {vocab.size()}')
 
-    # vocab.randomly_init_embeddings(embed_size)
     vocab.build_embedding_matrix(embeddings_file)
 
     print('* Saving vocab...')
     with open(os.path.join(data_cache_dir, 'vocab', f'{data_type}.vocab.{params}.data'), 'wb') as fout:
         pickle.dump(vocab, fout)
 
-    # train_brc_dataset.convert_to_ids(vocab)
-    #
-    # with open(os.path.join(data_cache_dir, "trainset", f"{data_type}.train_brcdataset.{params}.pkl"), 'wb') as pkl_file:
-    #     pickle.dump(train_brc_dataset, pkl_file)
-    #
+    train_brc_dataset.convert_to_ids(vocab)
+
+    batch_reader = train_brc_dataset.gen_mini_batches('train', 2, vocab.get_id(vocab.pad_token), True)
+
+    print(json.dumps(batch_reader.__next__(), ensure_ascii=False))
+
+    # with open(os.path.join(data_cache_dir, "trainset", f"{data_type}.train_brcdataset.{params}.pkl"), 'wb') as f:
+    #     pickle.dump(train_brc_dataset, f)
+
     # print("* Create and save dev brc dataset")
     # valid_brc_dataset = BRCDataset(max_p_num=max_p_num,
     #                                max_p_len=max_p_len,
     #                                max_q_len=max_q_len,
-    #                                dev_files=[dev_file],
-    #                                badcase_sample_log_file=dev_badcase_save_file)
+    #                                dev_files=[dev_file])
     #
     # valid_brc_dataset.convert_to_ids(vocab)
     #
@@ -109,8 +109,7 @@ def prepare_dureader(input_dir,
     # test_brc_dataset = BRCDataset(max_p_num=max_p_num,
     #                               max_p_len=max_p_len,
     #                               max_q_len=max_q_len,
-    #                               test_files=[test_file],
-    #                               badcase_sample_log_file=test_badcase_save_file)
+    #                               test_files=[test_file])
     # test_brc_dataset.convert_to_ids(vocab)
     #
     # with open(os.path.join(data_cache_dir, "testset", f"{data_type}.test_brcdataset.{params}.pkl"), 'wb') as pkl_file:
@@ -142,9 +141,7 @@ if __name__ == "__main__":
                      max_p_len=config['max_p_len'],
                      max_q_len=config['max_q_len'],
                      embeddings_file=os.path.normpath(config["embeddings_file"]),
-                     train_badcase_save_file=config['bad_case_checking']['train_badcase_save_file'],
-                     dev_badcase_save_file=config['bad_case_checking']['dev_badcase_save_file'],
-                     test_badcase_save_file=config['bad_case_checking']['test_badcase_save_file'],
+                     train_badcase_save_file=config['train_badcase_save_file'],
                      min_word_cnt=config['min_word_cnt'],
                      embed_size=config['embed_size'],
                      info=config["info"])

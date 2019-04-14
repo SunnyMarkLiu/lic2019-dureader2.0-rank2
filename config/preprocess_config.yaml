@@ -10,7 +10,4 @@ embed_size: 300
 stopwords: []
 info: null
 
-bad_case_checking:
-  train_badcase_save_file: ../logs/search/train_badcase.json
-  dev_badcase_save_file: ../logs/search/dev_badcase.json
-  test_badcase_save_file: ../logs/search/test_badcase.json
+train_badcase_save_file: ../logs/search/train_badcase.json

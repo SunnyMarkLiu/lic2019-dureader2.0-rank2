@@ -222,7 +222,7 @@ class Vocab(object):
         for not_oov_word in not_oov_words:
             self.embedding_matrix[self.get_id(not_oov_word[0])] = embedding_matrix_tmp[not_oov_word[1]]
 
-        print('total vocabulary size:', self.size())
+        print('Final vocabulary size:', self.size())
         print(f'trainable oov words start from {self.oov_word_start_idx} to {self.oov_word_end_idx}')
 
     def convert_to_ids(self, tokens):
