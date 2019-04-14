@@ -4,7 +4,10 @@ This module implements the Vocab class for converting string to id and back
 load_pretrained_embeddings同样将initial_tokens中所有词随机化而不是赋值为0
 暂时取消了随机初始化
 """
+import operator
+
 import numpy as np
+from hanziconv import HanziConv
 from nltk.stem import SnowballStemmer
 
 
@@ -51,6 +54,10 @@ class Vocab(object):
         # url_xxx 的词统一转成 url # TODO 更多的标准化，如中英文标点符号的标准化
         if 'url_' in token:
             token = 'url'
+
+        # 繁体字转换
+        token = HanziConv.toSimplified(token)
+
         return token
 
     def get_id(self, token):
@@ -94,21 +101,38 @@ class Vocab(object):
             self.token_cnt[token] = cnt
         return idx
 
+    def rebuild_add(self, token):
+        """
+        rebuild vocab, remove text normalization, faster add token
+        """
+        if token in self.token2id:
+            idx = self.token2id[token]
+        else:
+            idx = len(self.id2token)
+            self.id2token[idx] = token
+            self.token2id[token] = idx
+        return idx
+
     def filter_tokens_by_cnt(self, min_cnt):
         """
         filter the tokens in vocab by their count
         Args:
             min_cnt: tokens with frequency less than min_cnt is filtered
         """
-        filtered_tokens = [token for token in self.token2id if self.token_cnt[token] >= min_cnt]
+        left_tokens = [token for token in self.token2id if self.token_cnt[token] >= min_cnt]
+        filtered_tokens = [token for token in self.token2id if self.token_cnt[token] < min_cnt]
         # rebuild the token x id map
         self.token2id = {}
         self.id2token = {}
         for token in self.zero_tokens:
-            self.add(token, cnt=0)
-        self.add(self.unk_token, cnt=0)
+            self.rebuild_add(token)
+        self.rebuild_add(self.unk_token)
+        for token in left_tokens:
+            self.rebuild_add(token)
+
+        # 去掉过滤的词
         for token in filtered_tokens:
-            self.add(token, cnt=0)
+            del self.token_cnt[token]
 
     def randomly_init_embeddings(self, embed_dim):
         """
@@ -124,7 +148,7 @@ class Vocab(object):
 
     def load_pretrained_embed(self, filepath):
         """
-        load pretrained embeddings, include: Glove, Paragram, FastText, GoogleNews
+        load pretrained embeddings
         """
 
         def get_coefs(word, *arr):
@@ -147,7 +171,6 @@ class Vocab(object):
         yield key.upper()
         yield key.capitalize()
         yield self.snowballStemmer.stem(key)
-        # 繁体字转换
 
     def build_embedding_matrix(self, embeddings_file):
         """
@@ -163,11 +186,13 @@ class Vocab(object):
         """
         # Load the word embeddings into a dictionnary.
         embeddings_index, emb_mean, emb_std, self.embed_dim = self.load_pretrained_embed(embeddings_file)
+        print(emb_mean, emb_std)
 
         # build embedding matrix
         embedding_matrix_tmp = np.random.normal(emb_mean, emb_std, (self.size(), self.embed_dim))
 
-        oov_count = 0
+        oov_text_count = 0
+        # (oov_word, original_index, count)
         oov_words = []
         not_oov_words = []
         for key, i in self.token2id.items():
@@ -182,14 +207,17 @@ class Vocab(object):
 
             if is_oov:
                 if key not in self.zero_tokens and key != self.unk_token:
-                    oov_count += 1
-                    oov_words.append((key, i))
+                    oov_text_count += self.token_cnt[key]
+                    oov_words.append((key, i, self.token_cnt[key]))
 
+        oov_count = len(oov_words)
         print("Missed words: ", oov_count)
         print('Found embeddings for {:.6%} of vocab'.format((self.size() - oov_count) / self.size()))
+        print('Found embeddings for {:.6%} of all text'.format(oov_text_count / sum(self.token_cnt.values())))
         print('Save out of vocabulary words:')
+        oov_words = sorted(oov_words, key=operator.itemgetter(2))[::-1]
         with open('../logs/oov_words.txt', 'w') as oov_writer:
-            oov_writer.writelines([oov[0] + '\n' for oov in oov_words])
+            oov_writer.writelines([oov[0] + '\t' + str(oov[2])+ '\n' for oov in oov_words])
 
         print('Move oov words ahead and rebuild the token x id map')
         self.token2id = {}
@@ -197,18 +225,18 @@ class Vocab(object):
 
         # zero words
         for token in self.zero_tokens:
-            self.add(token, cnt=0)
+            self.rebuild_add(token)
 
         # oov words
-        self.add(self.unk_token, cnt=0)
+        self.rebuild_add(self.unk_token)
         for oov in oov_words:
-            self.add(oov[0], cnt=0)
+            self.rebuild_add(oov[0])
         self.oov_word_start_idx = self.get_id(self.unk_token)  # oov 词开始下标
         self.oov_word_end_idx = self.get_id(oov_words[-1][0])  # oov 词结束下标
 
         # not oov words
         for token in not_oov_words:
-            self.add(token[0], cnt=0)
+            self.rebuild_add(token[0])
 
         self.embedding_matrix = np.random.normal(emb_mean, emb_std, (self.size(), self.embed_dim))
 
