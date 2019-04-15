@@ -8,15 +8,14 @@ global:
 data:
   data_type: search
   mrc_dataset:
-    train_path: input/dureader_2.0/demo_mrc/trainset/search.train.json
-    dev_path: input/dureader_2.0/demo_mrc/devset/search.dev.json
-    test_path: input/dureader_2.0/demo_mrc/testset/search.test1.json
+    train_path: input/dureader_2.0/mrc_dataset/trainset/search.train.json
+    dev_path: input/dureader_2.0/mrc_dataset/devset/search.dev.json
+    test_path: input/dureader_2.0/mrc_dataset/testset/search.test1.json
 
   data_cache_dir: input/dureader_2.0/mrc_data_cache
 
   train_badcase_save_file: logs/search/train_badcase.json
   embeddings_file: ../../pretrained_embeddings/chinese/Tencent_AILab_ChineseEmbedding.txt
-#  embeddings_file: ../../pretrained_embeddings/chinese/tencent_tmp.txt
   max_p_num: 5
   max_p_len: 500
   max_q_len: 60

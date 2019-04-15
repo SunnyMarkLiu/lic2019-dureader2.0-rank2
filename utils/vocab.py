@@ -39,10 +39,8 @@ class Vocab(LoggerMixin):
         self.spliter_token = '<splitter>'
         self.zero_tokens = [self.pad_token, self.spliter_token]
 
-        self.space_token = ' '  # 词向量中不存在空格，作为 oov 参与训练
         self.unk_token = '<unk>'  # 对于测试集中的有的词，可能都不存在与 train 的 oov 可训练的词中，统一作为 unk
 
-        self.add(self.space_token)
         self.add(self.unk_token)
 
         for token in self.zero_tokens:
@@ -137,7 +135,6 @@ class Vocab(LoggerMixin):
         # rebuild the token x id map
         self.token2id = {}
         self.id2token = {}
-        self.rebuild_add(self.space_token)
         self.rebuild_add(self.unk_token)
         for token in self.zero_tokens:
             self.rebuild_add(token)
@@ -234,7 +231,7 @@ class Vocab(LoggerMixin):
         self.logger.info('Found embeddings for {:.6%} of all text'.format(1 - oov_text_count / sum(self.token_cnt.values())))
         self.logger.info('Save out of vocabulary words to logs/oov_words.txt')
         oov_words = sorted(oov_words, key=operator.itemgetter(2))[::-1]
-        with open('logs/oov_words.txt', 'w') as oov_writer:
+        with open('logs/oov_words_{}.txt'.format(embeddings_file.split('/')[-1]), 'w') as oov_writer:
             oov_writer.writelines([oov[0] + '\t' + str(oov[2]) + '\n' for oov in oov_words])
 
         self.logger.info('Move oov words ahead and rebuild the token x id map')
@@ -242,7 +239,6 @@ class Vocab(LoggerMixin):
         self.id2token = {}
 
         # oov words
-        self.rebuild_add(self.space_token)
         self.rebuild_add(self.unk_token)
         for oov in oov_words:
             self.rebuild_add(oov[0])

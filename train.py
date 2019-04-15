@@ -37,14 +37,15 @@ def train(config_path):
     logger.info('loading config file...')
     global_config = read_config(config_path)
 
-    experiment_params = 'model-{}_seed{}_data{}_max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}'.format(
+    experiment_params = 'model-{}_seed{}_data{}_max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}_preembedfile_{}'.format(
         global_config['global']['model'],
         global_config['global']['random_seed'],
         global_config['data']['data_type'],
         global_config['data']['max_p_num'],
         global_config['data']['max_p_len'],
         global_config['data']['max_q_len'],
-        global_config['data']['min_word_cnt']
+        global_config['data']['min_word_cnt'],
+        global_config['data']['embeddings_file'].split('/')[-1]
     )
 
     # seed everything for torch
