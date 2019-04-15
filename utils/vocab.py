@@ -4,13 +4,22 @@ This module implements the Vocab class for converting string to id and back
 load_pretrained_embeddings同样将initial_tokens中所有词随机化而不是赋值为0
 暂时取消了随机初始化
 """
+import logging
 import operator
 import numpy as np
+from tqdm import tqdm
 from hanziconv import HanziConv
 from nltk.stem import SnowballStemmer
 
 
-class Vocab(object):
+class LoggerMixin(object):
+    @property
+    def logger(self):
+        component = "{}.{}".format(type(self).__module__, type(self).__name__)
+        return logging.getLogger(component)
+
+
+class Vocab(LoggerMixin):
     """
     Implements a vocabulary to store the tokens in the data, with their corresponding embeddings.
     """
@@ -30,8 +39,10 @@ class Vocab(object):
         self.spliter_token = '<splitter>'
         self.zero_tokens = [self.pad_token, self.spliter_token]
 
+        self.space_token = ' '  # 词向量中不存在空格，作为 oov 参与训练
         self.unk_token = '<unk>'  # 对于测试集中的有的词，可能都不存在与 train 的 oov 可训练的词中，统一作为 unk
 
+        self.add(self.space_token)
         self.add(self.unk_token)
 
         for token in self.zero_tokens:
@@ -126,6 +137,7 @@ class Vocab(object):
         # rebuild the token x id map
         self.token2id = {}
         self.id2token = {}
+        self.rebuild_add(self.space_token)
         self.rebuild_add(self.unk_token)
         for token in self.zero_tokens:
             self.rebuild_add(token)
@@ -152,15 +164,19 @@ class Vocab(object):
         """
         load pretrained embeddings
         """
+        embeddings_index = {}
 
-        def get_coefs(word, *arr):
-            return word, np.asarray(arr, dtype='float16')
+        with open(filepath, 'r', encoding='utf-8') as f:
+            vocab_size, embed_dim = map(int, f.readline().strip().split(" "))
 
-        embeddings_index = dict(get_coefs(*o.strip().split(" ")) for o in open(filepath) if len(o) > 100)
+            for _ in tqdm(range(vocab_size)):
+                lists = f.readline().rstrip().split(" ")
+                word = lists[0]
+                vector = np.asarray(list(map(float, lists[1:])), dtype='float16')
+                embeddings_index[word] = vector
 
-        all_embs = np.stack(list(embeddings_index.values())[:100])
-        emb_mean, emb_std = all_embs.mean(), all_embs.std()
-        embed_dim = all_embs.shape[1]
+        sample_embs = np.stack(list(embeddings_index.values())[:1000])
+        emb_mean, emb_std = sample_embs.mean(), sample_embs.std()
 
         return embeddings_index, emb_mean, emb_std, embed_dim
 
@@ -188,7 +204,7 @@ class Vocab(object):
         """
         # Load the word embeddings into a dictionnary.
         embeddings_index, emb_mean, emb_std, self.embed_dim = self.load_pretrained_embed(embeddings_file)
-        print(emb_mean, emb_std)
+        self.logger.info('pretrained embeddings mean: {}, std: {}, calc from top 1000 words'.format(emb_mean, emb_std))
 
         # build embedding matrix
         embedding_matrix_tmp = np.random.normal(emb_mean, emb_std, (self.size(), self.embed_dim))
@@ -213,19 +229,20 @@ class Vocab(object):
                     oov_words.append((key, i, self.token_cnt[key]))
 
         oov_count = len(oov_words)
-        print("Missed words: ", oov_count)
-        print('Found embeddings for {:.6%} of vocab'.format((self.size() - oov_count) / self.size()))
-        print('Found embeddings for {:.6%} of all text'.format(oov_text_count / sum(self.token_cnt.values())))
-        print('Save out of vocabulary words:')
+        self.logger.info("Missed words: {}".format(oov_count))
+        self.logger.info('Found embeddings for {:.6%} of vocab'.format((self.size() - oov_count) / self.size()))
+        self.logger.info('Found embeddings for {:.6%} of all text'.format(1 - oov_text_count / sum(self.token_cnt.values())))
+        self.logger.info('Save out of vocabulary words to logs/oov_words.txt')
         oov_words = sorted(oov_words, key=operator.itemgetter(2))[::-1]
         with open('logs/oov_words.txt', 'w') as oov_writer:
-            oov_writer.writelines([oov[0] + '\t' + str(oov[2])+ '\n' for oov in oov_words])
+            oov_writer.writelines([oov[0] + '\t' + str(oov[2]) + '\n' for oov in oov_words])
 
-        print('Move oov words ahead and rebuild the token x id map')
+        self.logger.info('Move oov words ahead and rebuild the token x id map')
         self.token2id = {}
         self.id2token = {}
 
         # oov words
+        self.rebuild_add(self.space_token)
         self.rebuild_add(self.unk_token)
         for oov in oov_words:
             self.rebuild_add(oov[0])
@@ -250,8 +267,8 @@ class Vocab(object):
         for not_oov_word in not_oov_words:
             self.embedding_matrix[self.get_id(not_oov_word[0])] = embedding_matrix_tmp[not_oov_word[1]]
 
-        print('Final vocabulary size:', self.size())
-        print(f'trainable oov words start from 0 to {self.oov_word_end_idx}')
+        self.logger.info('Final vocabulary size: {}'.format(self.size()))
+        self.logger.info('trainable oov words start from 0 to {}'.format(self.oov_word_end_idx))
 
     def convert_to_ids(self, tokens, all_unk=False):
         """

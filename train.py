@@ -92,7 +92,7 @@ def train(config_path):
     model_choose = global_config['global']['model']
     logger.info(f"create {model_choose} model")
 
-    if model_choose == 'bidf':
+    if model_choose == 'bidaf':
         model = BiDAF()
     elif model_choose == 'rnet':
         model = RNet()
