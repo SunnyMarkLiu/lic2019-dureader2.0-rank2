@@ -97,6 +97,7 @@ def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
         paragraph_match_scores = [title_match_score] + [para_match_scores[i] for i in selected_para_ids]
         pos_paragraphs = [doc['pos_title']] + [doc['pos_paragraphs'][i] for i in selected_para_ids]
         keyword_paragraphs = [doc['keyword_title']] + [doc['keyword_paragraphs'][i] for i in selected_para_ids]
+        paragraphs_word_in_question = [doc['title_word_in_question']] + [doc['paragraphs_word_in_question'][i] for i in selected_para_ids]
 
         if last_para_id > -1:
             last_seg_para = doc['segmented_paragraphs'][last_para_id][:last_para_cut_idx]
@@ -109,6 +110,7 @@ def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
             paragraph_match_scores.append(metric_max_over_ground_truths(f1_score, bleu_4, last_seg_para, ques_answers))
             pos_paragraphs.append(doc['pos_paragraphs'][last_para_id][:last_para_cut_idx])
             keyword_paragraphs.append(doc['keyword_paragraphs'][last_para_id][:last_para_cut_idx])
+            paragraphs_word_in_question.append(doc['paragraphs_word_in_question'][last_para_id][:last_para_cut_idx])
 
         # concat to passage
         segmented_passage = []
@@ -123,11 +125,16 @@ def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
         for kw_para in keyword_paragraphs:
             keyword_passage += kw_para + [0]
 
+        passage_word_in_question = []
+        for wiq_para in paragraphs_word_in_question:
+            passage_word_in_question += wiq_para + [0]
+
         most_related_para_id = paragraph_match_scores.index(max(paragraph_match_scores))
         doc['most_related_para_id'] = most_related_para_id
         doc['segmented_passage'] = segmented_passage[:-1]
         doc['pos_passage'] = pos_passage[:-1]
         doc['keyword_passage'] = keyword_passage[:-1]
+        doc['passage_word_in_question'] = passage_word_in_question[:-1]
         doc['paragraph_match_score'] = paragraph_match_scores
 
         doc['title_len'] = len(doc['segmented_title'])
@@ -136,6 +143,7 @@ def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
         del doc['title']; del doc['paragraphs']; del doc['segmented_title']
         del doc['pos_title']; del doc['keyword_title']; del doc['segmented_paragraphs']
         del doc['pos_paragraphs']; del doc['keyword_paragraphs']
+        del doc['title_word_in_question']; del doc['paragraphs_word_in_question']
 
     del sample['question']
 
