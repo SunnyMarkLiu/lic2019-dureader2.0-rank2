@@ -7,7 +7,7 @@ import logging
 import numpy as np
 
 
-class BRCDataset(object):
+class Dataset(object):
     """
     This module implements the APIs for loading and using baidu reading comprehension dataset
     id 转换和 dynamic pooling提前做好存储在数组类型的 dataset 中
@@ -138,20 +138,20 @@ class BRCDataset(object):
                     for token in doc['segmented_passage']:
                         yield token
 
-    def convert_to_ids(self, vocab, all_unk=False):
+    def convert_to_ids(self, vocab, use_oov2unk):
         """
         Convert the question and passage in the original dataset to ids
         Args:
             vocab: the vocabulary on this dataset
-            all_unk: 所有oov的词是否映射到 <unk>, 默认为 False
+            use_oov2unk: 所有oov的词是否映射到 <unk>, 默认为 False
         """
         for data_set in [self.train_set, self.dev_set, self.test_set]:
             if data_set is None:
                 continue
             for sample in data_set:
-                sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], all_unk)
+                sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], use_oov2unk)
                 for doc in sample['documents']:
-                    doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], all_unk)
+                    doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
 
     def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True):
         """
@@ -211,7 +211,10 @@ class BRCDataset(object):
         max_passage_num = max([len(sample['documents']) for sample in batch_data['raw_data']])
         max_passage_num = min(self.max_p_num, max_passage_num)
         # 增加信息,求最大答案数
-        max_ans_num = max([len(sample['answer_labels']) for sample in batch_data['raw_data']])
+        if not is_testing:
+            max_ans_num = max([len(sample['answer_labels']) for sample in batch_data['raw_data']])
+        else:
+            max_ans_num = 1
 
         for sidx, sample in enumerate(batch_data['raw_data']):
             for pidx in range(max_passage_num):
@@ -221,9 +224,9 @@ class BRCDataset(object):
                     passage_token_ids = sample['documents'][pidx]['passage_token_ids']
                     batch_data['passage_token_ids'].append(passage_token_ids)
                     batch_data['passage_length'].append(min(len(passage_token_ids), self.max_p_len))
-                    batch_data['pos_questions'].append(sample['pos_question'])
+                    batch_data['pos_questions'].append([self.pos_meta_dict[pos_str] for pos_str in sample['pos_question']])
                     batch_data['keyword_questions'].append(sample['keyword_question'])
-                    batch_data['pos_passages'].append(sample['documents'][pidx]['pos_passage'])
+                    batch_data['pos_passages'].append([self.pos_meta_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
                     batch_data['keyword_passages'].append(sample['documents'][pidx]['keyword_passage'])
 
                     if not is_testing:
@@ -277,19 +280,13 @@ class BRCDataset(object):
         """
         pad_p_len = min(self.max_p_len, max(batch_data['passage_length']))
         pad_q_len = min(self.max_q_len, max(batch_data['question_length']))
-        batch_data['passage_token_ids'] = [(ids + [pad_id] * (pad_p_len - len(ids)))[: pad_p_len] for ids in
-                                           batch_data['passage_token_ids']]
-        batch_data['question_token_ids'] = [(ids + [pad_id] * (pad_q_len - len(ids)))[: pad_q_len] for ids in
-                                            batch_data['question_token_ids']]
+        batch_data['passage_token_ids'] = [(ids + [pad_id] * (pad_p_len - len(ids)))[: pad_p_len] for ids in batch_data['passage_token_ids']]
+        batch_data['question_token_ids'] = [(ids + [pad_id] * (pad_q_len - len(ids)))[: pad_q_len] for ids in batch_data['question_token_ids']]
         # 增加信息
-        batch_data['pos_questions'] = [(pos + [-1] * (pad_q_len - len(pos)))[: pad_q_len] for pos in
-                                       batch_data['pos_questions']]
-        batch_data['keyword_questions'] = [(key + [-1] * (pad_q_len - len(key)))[: pad_q_len] for key in
-                                           batch_data['keyword_questions']]
+        batch_data['pos_questions'] = [(pos + [-1] * (pad_q_len - len(pos)))[: pad_q_len] for pos in batch_data['pos_questions']]
+        batch_data['keyword_questions'] = [(key + [-1] * (pad_q_len - len(key)))[: pad_q_len] for key in batch_data['keyword_questions']]
 
-        batch_data['pos_passages'] = [(pos + [-1] * (pad_p_len - len(pos)))[: pad_p_len] for pos in
-                                      batch_data['pos_passages']]
-        batch_data['keyword_passages'] = [(key + [-1] * (pad_p_len - len(key)))[: pad_p_len] for key in
-                                          batch_data['keyword_passages']]
+        batch_data['pos_passages'] = [(pos + [-1] * (pad_p_len - len(pos)))[: pad_p_len] for pos in batch_data['pos_passages']]
+        batch_data['keyword_passages'] = [(key + [-1] * (pad_p_len - len(key)))[: pad_p_len] for key in batch_data['keyword_passages']]
 
         return batch_data, pad_p_len, pad_q_len

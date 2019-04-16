@@ -15,7 +15,7 @@ import torch
 import random
 import numpy as np
 from utils.config_util import init_logging, read_config
-from utils.dataset import BRCDataset
+from utils.dataset import Dataset
 from utils.vocab import Vocab
 from models import BiDAF, RNet
 
@@ -31,6 +31,7 @@ def seed_torch(random_seed=1):
     # When running on the CuDNN backend, two further options must be set
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
 
 def train(config_path):
     logger.info('------------MODEL TRAIN--------------')
@@ -54,14 +55,14 @@ def train(config_path):
 
     logger.info('reading dureader dataset')
     logging.info('create train BRCDataset')
-    train_brc_dataset = BRCDataset(max_p_num=global_config['data']['max_p_num'],
-                                   max_p_len=global_config['data']['max_p_len'],
-                                   max_q_len=global_config['data']['max_q_len'],
-                                   train_files=[global_config['data']['mrc_dataset']['train_path']],
-                                   badcase_sample_log_file=global_config['data']['train_badcase_save_file'])
+    train_brc_dataset = Dataset(max_p_num=global_config['data']['max_p_num'],
+                                max_p_len=global_config['data']['max_p_len'],
+                                max_q_len=global_config['data']['max_q_len'],
+                                train_files=[global_config['data']['mrc_dataset']['train_path']],
+                                badcase_sample_log_file=global_config['data']['train_badcase_save_file'])
 
     vocab_path = os.path.join(global_config['data']['data_cache_dir'], 'vocab',
-                           f"{global_config['data']['data_type']}.vocab.{experiment_params}.data")
+                              f"{global_config['data']['data_type']}.vocab.{experiment_params}.data")
 
     if not os.path.exists(vocab_path):
         logging.info('Building vocabulary from train text set')

@@ -1,8 +1,5 @@
 """
 This module implements the Vocab class for converting string to id and back
-修改记录: randomly_init_embeddings不再将<ukn>,<padding>初始化为0
-load_pretrained_embeddings同样将initial_tokens中所有词随机化而不是赋值为0
-暂时取消了随机初始化
 """
 import logging
 import operator
