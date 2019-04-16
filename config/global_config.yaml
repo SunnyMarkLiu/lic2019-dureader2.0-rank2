@@ -6,11 +6,11 @@ global:
   # Note that 'base' model is customized by base_model.yaml
 
 data:
-  data_type: search
+  data_type: zhidao
   mrc_dataset:
-    train_path: input/dureader_2.0/mrc_dataset/trainset/search.train.json
-    dev_path: input/dureader_2.0/mrc_dataset/devset/search.dev.json
-    test_path: input/dureader_2.0/mrc_dataset/testset/search.test1.json
+    train_path: input/dureader_2.0/mrc_dataset/trainset/zhidao.train.json
+    dev_path: input/dureader_2.0/mrc_dataset/devset/zhidao.dev.json
+    test_path: input/dureader_2.0/mrc_dataset/testset/zhidao.test1.json
 
   data_cache_dir: input/dureader_2.0/mrc_data_cache
 

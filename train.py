@@ -14,6 +14,7 @@ import pickle
 import torch
 import random
 import numpy as np
+from pprint import pprint
 from utils.config_util import init_logging, read_config
 from utils.dataset import Dataset
 from utils.vocab import Vocab
@@ -37,11 +38,10 @@ def train(config_path):
     logger.info('------------MODEL TRAIN--------------')
     logger.info('loading config file...')
     global_config = read_config(config_path)
+    pprint(global_config)
+    print()
 
-    experiment_params = 'model-{}_seed{}_data{}_max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}_preembedfile_{}'.format(
-        global_config['global']['model'],
-        global_config['global']['random_seed'],
-        global_config['data']['data_type'],
+    experiment_params = 'max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}_preembedfile_{}'.format(
         global_config['data']['max_p_num'],
         global_config['data']['max_p_len'],
         global_config['data']['max_q_len'],
@@ -89,7 +89,7 @@ def train(config_path):
             logging.info(f'vocabulary size: {vocab.size()}')
             logging.info(f'trainable oov words start from 0 to {vocab.oov_word_end_idx}')
 
-    train_brc_dataset.convert_to_ids(vocab)
+    train_brc_dataset.convert_to_ids(vocab, use_oov2unk=True)
 
     model_choose = global_config['global']['model']
     logger.info(f"create {model_choose} model")

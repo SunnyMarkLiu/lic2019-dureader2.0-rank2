@@ -20,7 +20,7 @@ from utils.jieba_util import WordSegmentPOSKeywordExtractor
 import warnings
 warnings.filterwarnings("ignore")
 
-jieba.load_userdict('./all_url_dict.txt')
+jieba.load_userdict('./jieba_custom_dict.txt')      # 腾讯的词向量构成的词典和所有的 url 构成的词
 url_map_df = pd.read_csv('url_mapping.csv', encoding='utf-8')
 url_map_dict = dict(zip(url_map_df['url'], url_map_df['url_map_id']))
 jieba_extractor = WordSegmentPOSKeywordExtractor()
@@ -111,11 +111,12 @@ def clean_sample(sample):
     question = sample['question'].strip()
     documents = sample['documents']
 
-    if not question or not len(documents):
-        return False
+    if 'answers' in sample: # 只对 train/dev 数据进行过滤
+        if not question or not len(documents):
+            return False
 
-    if 'answers' in sample and not len(sample['answers']):
-        return False
+        if not len(sample['answers']):
+            return False
 
     documents = [clean_document(document) for document in documents]
 
