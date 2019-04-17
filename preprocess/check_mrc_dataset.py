@@ -15,26 +15,28 @@ import sys
 import json
 
 if __name__ == '__main__':
+    data_version = mode = sys.argv[1]
+
     empty_gold_fake_sanwer_count = 0
     process_cnt = 0
 
-    bad_case_writer = open('empty_gold_fake_sanwer_sample.json', 'w')
+    bad_case_writer = open('empty_gold_fake_sanwer_sample_dataversion{}.json'.format(data_version), 'w')
 
     for line in sys.stdin:
         if not line.startswith('{'):
             continue
 
-        sample = json.loads(line.strip())
+        try:
+            sample = json.loads(line.strip())
+        except:
+            continue
         process_cnt += 1
-        # gold_fake_answer = sample['fake_answers']
-        # if len(gold_fake_answer) == 0:
-
-        if sample['gold_answer']['fake_answer'] == '':
+        if len(sample['fake_answers']) == 0 or sample['fake_answers'][0] == '':
             empty_gold_fake_sanwer_count += 1
             # print(json.dumps(sample, ensure_ascii=False))
             bad_case_writer.write(json.dumps(sample, ensure_ascii=False) + '\n')
             bad_case_writer.flush()
 
-        if process_cnt % 10 == 0:
+        if process_cnt % 100 == 0:
             print('process:', process_cnt, ', empty fake answer:', empty_gold_fake_sanwer_count)
         # print(json.dumps(sample, ensure_ascii=False))

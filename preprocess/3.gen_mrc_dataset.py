@@ -14,6 +14,7 @@ sys.path.append('../')
 import sys
 import json
 import itertools
+import numpy as np
 from utils.metric_util import metric_max_over_ground_truths, f1_score
 import warnings
 from zhon.hanzi import punctuation
@@ -66,30 +67,90 @@ def gen_trainable_dataset(sample, debug=False):
     multi_best_fake_answers = []
     multi_best_match_score = []
 
-    for answer in sample['segmented_answers']:
+    for answer in trainable_sample['segmented_answers']:
         if answer == '' or len(answer) == 0: continue
 
         answer_tokens = set([token for token in answer])
-        ques_answer = [sample['segmented_question'] + answer]
+        ques_answer = [trainable_sample['segmented_question'] + answer]
 
         best_match_score = 0
         best_match_doc_id = -1
         best_match_start_idx = -1
         best_match_end_idx = -1
         best_fake_answer = ''
-        for doc_id, doc in enumerate(sample['documents']):
+        for doc_id, doc in enumerate(trainable_sample['documents']):
             if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
                 continue
 
-            # 如果答案是passage的一个子数组，则直接定位
+            # ---------------- 直接定位答案 ----------------
             sub_start_idx, sub_end_idx = contain_sublist(doc['segmented_passage'], answer)
-            if sub_start_idx != -1 and sub_end_idx != -1:
+            if sub_start_idx == -1 or sub_end_idx == -1:
+                if answer[-1] == '。':
+                    # 去掉末尾的句号再查找
+                    sub_start_idx, sub_end_idx = contain_sublist(doc['segmented_passage'], answer[:-1])
+                    if sub_start_idx == -1 or sub_end_idx == -1:
+                        if ',' in doc['segmented_passage'] or ';' in doc['segmented_passage']:
+                            doc_passage = np.array(doc['segmented_passage'])
+                            doc_passage[doc_passage == ','] = '，'
+                            doc_passage[doc_passage == ';'] = '；'
+                            if sum(doc_passage != np.array(doc['segmented_passage']).tolist()) > 0:  # 转换了再开始查找
+                                sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer[:-1])
+                else:
+                    # 将英文的标点符号,->，;->；再次定位查找
+                    if ',' in doc['segmented_passage'] or ';' in doc['segmented_passage']:
+                        doc_passage = np.array(doc['segmented_passage'])
+                        doc_passage[doc_passage == ','] = '，'
+                        doc_passage[doc_passage == ';'] = '；'
+                        if sum(doc_passage != np.array(doc['segmented_passage']).tolist()) > 0:   # 转换了再开始查找
+                            sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer)
+
+            if sub_start_idx != -1 and sub_end_idx != -1:   # 定位到了答案
                 best_match_score = 1
                 best_match_doc_id = doc_id
                 best_match_start_idx = sub_start_idx
                 best_match_end_idx = sub_end_idx
                 best_fake_answer = doc['segmented_passage'][best_match_start_idx: best_match_end_idx + 1]
                 break
+            else:
+                # 去掉<splitter>的答案直接定位，对于跨段落的答案
+                clean_passage = [token for token in doc['segmented_passage'] if token != '<splitter>']
+                sub_start_idx, sub_end_idx = contain_sublist(clean_passage, answer)
+
+                if sub_start_idx == -1 or sub_end_idx == -1:
+                    if answer[-1] == '。':
+                        # 去掉末尾的句号再查找
+                        sub_start_idx, sub_end_idx = contain_sublist(clean_passage, answer[:-1])
+                        if sub_start_idx == -1 or sub_end_idx == -1:
+                            if ',' in clean_passage or ';' in clean_passage:
+                                doc_passage = np.array(clean_passage)
+                                doc_passage[doc_passage == ','] = '，'
+                                doc_passage[doc_passage == ';'] = '；'
+                                if sum(doc_passage != np.array(clean_passage).tolist()) > 0:  # 转换了再开始查找
+                                    sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer[:-1])
+                    else:
+                        # 将英文的标点符号,->，;->；再次定位查找
+                        if ',' in clean_passage or ';' in clean_passage:
+                            doc_passage = np.array(clean_passage)
+                            doc_passage[doc_passage == ','] = '，'
+                            doc_passage[doc_passage == ';'] = '；'
+                            if sum(doc_passage != np.array(clean_passage).tolist()) > 0:  # 转换了再开始查找
+                                sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer)
+
+                if sub_start_idx != -1 and sub_end_idx != -1:   # 定位到了答案
+                    best_match_score = 1
+                    best_match_doc_id = doc_id
+                    best_match_start_idx = sub_start_idx
+                    best_match_end_idx = sub_end_idx
+                    best_fake_answer = clean_passage[best_match_start_idx: best_match_end_idx + 1]
+
+                    # 定位 <splitter> 的下标进行删除
+                    splitter_idx = [index for index, value in enumerate(doc['segmented_passage']) if value == '<splitter>']
+                    doc['segmented_passage'] = clean_passage
+                    doc['pos_passage'] = [token for token in doc['pos_passage'] if token != '<splitter>']
+                    doc['keyword_passage'] = [value for index, value in enumerate(doc['keyword_passage']) if index not in splitter_idx]
+                    doc['passage_word_in_question'] = [value for index, value in enumerate(doc['passage_word_in_question']) if index not in splitter_idx]
+                    break
+            # -------------------- 直接定位答案 end ----------------------------
 
             # 如果第一个段落中问题长度内不包含问题（test/dev）、问题+答案（train）的关键词，则从标题检索，from_start=0
             # 如果第一个段落中问题长度内包含，则标题不检索 from_start = doc['title_len'] + 1
