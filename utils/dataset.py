@@ -27,13 +27,32 @@ class Dataset(object):
         self.max_q_len = max_q_len
         self.badcase_sample_log_file = badcase_sample_log_file
 
-        self.pos_meta_dict = {'vg': 0, 'nrt': 1, 'eng': 2, 'vi': 3, 'p': 4, 'n': 5, 'uj': 6, 'f': 7, 'rz': 8, 'yg': 9,
-                              'uz': 10, 'e': 11, 'nt': 12, 'rr': 13, 'j': 14, 'df': 15, 'ng': 16, 'ad': 17, 'nr': 18,
-                              'vq': 19, 'dg': 20, 'ud': 21, 'o': 22, 'k': 23, 't': 24, 'rg': 25, 'bg': 26, 'ug': 27,
-                              'ag': 28, 'g': 29, '<splitter>': 30, 'r': 31, 'vn': 32, 'ns': 33, 'an': 34, 'b': 35,
-                              'in': 36, 'zg': 37, 'l': 38, 'z': 39, 'c': 40, 'm': 41, 'v': 42, 'x': 43, 'q': 44,
-                              'uv': 45, 'd': 46, 'tg': 47, 'nz': 48, 'h': 49, 'mq': 50, 'nrfg': 51, 'a': 52, 'u': 53,
-                              'i': 54, 'vd': 55, 'mg': 56, 's': 57, 'ul': 58, 'y': 59}
+        self.pos_meta_dict = {'nrt': 0, 'eng': 1, 'n': 2, 'f': 3, 'yg': 4, 'nt': 5, 'rr': 6, 'ad': 7, 'nr': 8, 'dg': 9,
+                              't': 10, 'bg': 11, 'ag': 12, '<splitter>': 13, 'ns': 14, 'an': 15, 'b': 16, 'm': 17,
+                              'v': 18, 'x': 19, 'q': 20, 'tg': 21, 'nz': 22, 'mq': 23, 'nrfg': 24, 'a': 25, 'i': 26,
+                              'mg': 27, 's': 28, 'other': 29}
+
+        self.pos_freq_dict = {'x': 0.20563602309030032, 'n': 0.19460698867947954, 'v': 0.16991158738054804,
+                              'm': 0.05210700869194445, 'd': 0.04541667667289912, 'uj': 0.04306780794895106,
+                              'r': 0.0340126331747856, 'c': 0.032380374061558345, 'p': 0.02728709228686929,
+                              'a': 0.025993176157884462, 'eng': 0.0231126718110954, '<splitter>': 0.018408304927885696,
+                              'f': 0.016472189616879736, 'vn': 0.01611112554186812, 'nr': 0.015056414730154373,
+                              'ns': 0.010653695322065906, 'l': 0.007673187462885046, 't': 0.007473765292177904,
+                              'ul': 0.007273519751486028, 'nz': 0.005452620693542182, 'b': 0.005098202390550196,
+                              'q': 0.0043298086890038445, 'u': 0.004153672859095093, 'i': 0.0033002858106722798,
+                              'y': 0.0032392126687888047, 'zg': 0.003013795531420795, 's': 0.002455900287280976,
+                              'ad': 0.0024424943862993848, 'j': 0.00213328628361992, 'ng': 0.002100501781926212,
+                              'nrt': 0.001278343980781499, 'nt': 0.001120002091098374, 'z': 0.0009073961986118701,
+                              'ug': 0.0007811297975800438, 'df': 0.0007068435278463239, 'an': 0.0006696448481789065,
+                              'k': 0.0006239118732729039, 'vg': 0.0006223402821512502, 'uz': 0.0004888007795876125,
+                              'ud': 0.0004695332684766103, 'uv': 0.0003955998715934905, 'g': 0.0003019186644416073,
+                              'mq': 0.0001960796806500702, 'e': 0.00016094596062690475, 'o': 0.00015848238535512324,
+                              'ag': 0.00015767208473522692, 'nrfg': 0.00012929195899160048,
+                              'tg': 0.00012542342699983745, 'h': 0.00011773210579324102, 'vd': 8.402948121973114e-05,
+                              'yg': 5.9854423612421454e-05, 'rz': 1.8617310210359595e-05, 'rr': 1.5140859163707681e-05,
+                              'vq': 1.212837056877059e-05, 'dg': 8.82182126500016e-06, 'mg': 6.616365948750119e-06,
+                              'vi': 4.8846751078426805e-06, 'rg': 4.767050824309346e-06, 'bg': 1.9604047255555908e-08,
+                              'in': 3.2673412092593183e-09}
 
         if self.badcase_sample_log_file:
             self.badcase_dumper = open(badcase_sample_log_file, 'w')
@@ -195,11 +214,13 @@ class Dataset(object):
         batch_data = {'raw_data': [data[i] for i in indices],
                       'question_token_ids': [],
                       'pos_questions': [],
+                      'pos_freq_questions': [],
                       'keyword_questions': [],
                       'question_length': [],
 
                       'passage_token_ids': [],
                       'pos_passages': [],
+                      'pos_freq_passages': [],
                       'keyword_passages': [],
                       'passage_length': [],
 
@@ -224,9 +245,11 @@ class Dataset(object):
                     passage_token_ids = sample['documents'][pidx]['passage_token_ids']
                     batch_data['passage_token_ids'].append(passage_token_ids)
                     batch_data['passage_length'].append(min(len(passage_token_ids), self.max_p_len))
-                    batch_data['pos_questions'].append([self.pos_meta_dict[pos_str] for pos_str in sample['pos_question']])
+                    batch_data['pos_questions'].append([self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['pos_question']])
+                    batch_data['pos_freq_questions'].append([self.pos_freq_dict[pos_str] for pos_str in sample['pos_question']])
                     batch_data['keyword_questions'].append(sample['keyword_question'])
-                    batch_data['pos_passages'].append([self.pos_meta_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
+                    batch_data['pos_passages'].append([self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['documents'][pidx]['pos_passage']])
+                    batch_data['pos_freq_passages'].append([self.pos_freq_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
                     batch_data['keyword_passages'].append(sample['documents'][pidx]['keyword_passage'])
 
                     if not is_testing:
@@ -240,8 +263,10 @@ class Dataset(object):
                     batch_data['passage_length'].append(0)
                     # 增加信息
                     batch_data['pos_questions'].append([])
+                    batch_data['pos_freq_questions'].append([])
                     batch_data['keyword_questions'].append([])
                     batch_data['pos_passages'].append([])
+                    batch_data['pos_freq_passages'].append([])
                     batch_data['keyword_passages'].append([])
                     batch_data['is_selected'].append(0)
 
