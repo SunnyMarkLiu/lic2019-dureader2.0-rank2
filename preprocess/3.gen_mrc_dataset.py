@@ -59,6 +59,9 @@ def gen_trainable_dataset(sample, debug=False):
     if 'segmented_answers' not in sample:
         return trainable_sample
 
+    if 'entity_answers' in sample:
+        trainable_sample['entity_answers'] = sample['entity_answers']
+
     trainable_sample['segmented_answers'] = sample['segmented_answers']
 
     # 为每个answer生成对应的 best_match_doc、labels和 fake answer
