@@ -41,14 +41,6 @@ def train(config_path):
     pprint(global_config)
     print()
 
-    experiment_params = 'max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}_preembedfile_{}'.format(
-        global_config['data']['max_p_num'],
-        global_config['data']['max_p_len'],
-        global_config['data']['max_q_len'],
-        global_config['data']['min_word_cnt'],
-        global_config['data']['embeddings_file'].split('/')[-1]
-    )
-
     # seed everything for torch
     seed_torch(global_config['global']['random_seed'])
     device = torch.device("cuda:{}".format(global_config['global']['gpu']) if torch.cuda.is_available() else "cpu")
@@ -61,34 +53,21 @@ def train(config_path):
                                 train_files=[global_config['data']['mrc_dataset']['train_path']],
                                 badcase_sample_log_file=global_config['data']['train_badcase_save_file'])
 
-    vocab_path = os.path.join(global_config['data']['data_cache_dir'], 'vocab',
-                              f"{global_config['data']['data_type']}.vocab.{experiment_params}.data")
+    logging.info('Building vocabulary from train text set')
+    vocab = Vocab()
+    for word in train_brc_dataset.word_iter('train'):  # 根据 train 构建词典
+        vocab.add(word)
 
-    if not os.path.exists(vocab_path):
-        logging.info('Building vocabulary from train text set')
-        vocab = Vocab()
-        for word in train_brc_dataset.word_iter('train'):  # 根据 train 构建词典
-            vocab.add(word)
+    unfiltered_vocab_size = vocab.size()
+    vocab.filter_tokens_by_cnt(min_cnt=global_config['data']['min_word_cnt'])
+    filtered_num = unfiltered_vocab_size - vocab.size()
+    logger.info(f'Original vocab size: {unfiltered_vocab_size}')
+    logger.info(f"filter word_cnt<{global_config['data']['min_word_cnt']}: {filtered_num}, left: {vocab.size()}")
 
-        unfiltered_vocab_size = vocab.size()
-        vocab.filter_tokens_by_cnt(min_cnt=global_config['data']['min_word_cnt'])
-        filtered_num = unfiltered_vocab_size - vocab.size()
-        logger.info(f'Original vocab size: {unfiltered_vocab_size}')
-        logger.info(f"filter word_cnt<{global_config['data']['min_word_cnt']}: {filtered_num}, left: {vocab.size()}")
+    logger.info('load pretrained embeddings and build embedding matrix')
+    vocab.build_embedding_matrix(global_config['data']['embeddings_file'])
 
-        logger.info('load pretrained embeddings and build embedding matrix')
-        vocab.build_embedding_matrix(global_config['data']['embeddings_file'])
-
-        logger.info('Saving vocab')
-        with open(vocab_path, 'wb') as fout:
-            pickle.dump(vocab, fout)
-    else:
-        logging.info(f'load vocabulary from {vocab_path}')
-        with open(vocab_path, 'rb') as f:
-            vocab: Vocab = pickle.load(f)
-            logging.info(f'vocabulary size: {vocab.size()}')
-            logging.info(f'trainable oov words start from 0 to {vocab.oov_word_end_idx}')
-
+    logger.info('train brc dataset convert to ids')
     train_brc_dataset.convert_to_ids(vocab, use_oov2unk=True)
 
     model_choose = global_config['global']['model']
