@@ -41,12 +41,17 @@ def _fetch_urls(text):
     if len(valid_urls) > 0:
         all_urls.extend(valid_urls)
 
-for raw_f in ['../input/dureader_2.0/raw/trainset/search.train.json',
-              '../input/dureader_2.0/raw/trainset/zhidao.train.json',
-              '../input/dureader_2.0/raw/devset/search.dev.json',
-              '../input/dureader_2.0/raw/devset/zhidao.dev.json',
-              '../input/dureader_2.0/raw/testset/search.test1.json',
-              '../input/dureader_2.0/raw/testset/zhidao.test1.json'
+
+data_version = 'dureader_2.0_v3'
+
+for raw_f in [f'../input/{data_version}/raw/trainset/search.train.json',
+              f'../input/{data_version}/raw/trainset/zhidao.train.json',
+              f'../input/{data_version}/raw/devset/search.dev.json',
+              f'../input/{data_version}/raw/devset/zhidao.dev.json',
+              f'../input/{data_version}/raw/devset/cleaned_18.search.dev.json',
+              f'../input/{data_version}/raw/devset/cleaned_18.zhidao.dev.json',
+              f'../input/{data_version}/raw/testset/search.test1.json',
+              f'../input/{data_version}/raw/testset/zhidao.test1.json'
               ]:
     print('* process', raw_f)
     with open(raw_f, 'r', encoding='utf-8') as f:
@@ -63,8 +68,8 @@ all_urls = list(set(all_urls))
 url_map_df = pd.DataFrame()
 url_map_df['url'] = all_urls
 url_map_df['url_map_id'] = ['url_{}'.format(i) for i in range(len(all_urls))]
-url_map_df.to_csv('url_mapping.csv', index=False, encoding='utf_8_sig')
+url_map_df.to_csv(f'../input/{data_version}/url_mapping.csv', index=False, encoding='utf_8_sig')
 
-# url_xxx 存入 jieba 的自定义词典中，追加写
-with open('./all_url_dict.txt', 'a', encoding='utf-8') as f:
+# url_xxx 存入 jieba 的自定义词典中
+with open(f'../input/{data_version}/all_url_dict.txt', 'w', encoding='utf-8') as f:
     f.writelines([url_id + '\n' for url_id in url_map_df['url_map_id']])

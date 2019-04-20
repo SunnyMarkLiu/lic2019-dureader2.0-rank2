@@ -50,7 +50,7 @@ with open(f'../input/{data_version}/mrc_dataset/trainset/search.train.json', 'r'
     for line in tqdm(lines):
         sample = json.loads(line.strip())
         rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(all_rouge_l)
+        all_rouge_l.append(rouge_l)
         all_bleu4.append(bleu4)
 
 print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
@@ -63,7 +63,7 @@ with open(f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json', 'r'
     for line in tqdm(lines):
         sample = json.loads(line.strip())
         rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(all_rouge_l)
+        all_rouge_l.append(rouge_l)
         all_bleu4.append(bleu4)
 
 print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
@@ -76,7 +76,7 @@ with open(f'../input/{data_version}/mrc_dataset/devset/search.dev.json', 'r') as
     for line in tqdm(lines):
         sample = json.loads(line.strip())
         rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(all_rouge_l)
+        all_rouge_l.append(rouge_l)
         all_bleu4.append(bleu4)
 
 print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
@@ -89,7 +89,7 @@ with open(f'../input/{data_version}/mrc_dataset/devset/zhidao.dev.json', 'r') as
     for line in tqdm(lines):
         sample = json.loads(line.strip())
         rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(all_rouge_l)
+        all_rouge_l.append(rouge_l)
         all_bleu4.append(bleu4)
 
 print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
