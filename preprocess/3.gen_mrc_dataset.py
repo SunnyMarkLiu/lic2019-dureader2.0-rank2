@@ -62,6 +62,9 @@ def gen_trainable_dataset(sample, debug=False):
     if 'entity_answers' in sample:
         trainable_sample['entity_answers'] = sample['entity_answers']
 
+    if len(sample['segmented_answers']) == 0:
+        return None
+
     trainable_sample['segmented_answers'] = sample['segmented_answers']
 
     # 为每个answer生成对应的 best_match_doc、labels和 fake answer
@@ -82,7 +85,9 @@ def gen_trainable_dataset(sample, debug=False):
         best_match_end_idx = -1
         best_fake_answer = ''
         for doc_id, doc in enumerate(trainable_sample['documents']):
-            if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
+            # is_selected 并不准确，此处不能将 selected 为 false 的 doc 过滤掉
+            # if not doc['is_selected'] or len(doc['segmented_passage']) == 0:
+            if len(doc['segmented_passage']) == 0:
                 continue
 
             # ---------------- 直接定位答案 ----------------
@@ -209,4 +214,5 @@ if __name__ == '__main__':
 
         sample = json.loads(line.strip())
         trainable_sample = gen_trainable_dataset(sample, debug=False)
-        print(json.dumps(trainable_sample, ensure_ascii=False))
+        if trainable_sample is not None:
+            print(json.dumps(trainable_sample, ensure_ascii=False))

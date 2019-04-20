@@ -20,7 +20,7 @@ if __name__ == '__main__':
     empty_gold_fake_sanwer_count = 0
     process_cnt = 0
 
-    bad_case_writer = open('empty_gold_fake_sanwer_sample_dataversion{}.json'.format(data_version), 'w')
+    bad_case_writer = open('empty_fake_answer_sample_dataversion{}.json'.format(data_version), 'w')
 
     for line in sys.stdin:
         if not line.startswith('{'):
@@ -30,8 +30,11 @@ if __name__ == '__main__':
             sample = json.loads(line.strip())
         except:
             continue
+
         process_cnt += 1
-        if len(sample['fake_answers']) == 0 or sample['fake_answers'][0] == '':
+
+        has_empty_fake_answer = sum([int(fake_ans == '') for fake_ans in sample['fake_answers']])
+        if len(sample['fake_answers']) == 0 or has_empty_fake_answer > 0:
             empty_gold_fake_sanwer_count += 1
             # print(json.dumps(sample, ensure_ascii=False))
             bad_case_writer.write(json.dumps(sample, ensure_ascii=False) + '\n')

@@ -35,7 +35,7 @@ def calc_paragraph_match_scores(doc, ques_answers):
     return match_scores
 
 
-def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
+def extract_paragraph(sample, mode, max_doc_len):
     """
     对于训练集，计算每个 doc 的每个段落 para 与 question+answers 的 f1 值
     对于测试集和验证集，计算每个 doc 的每个段落 para 与 question 的 f1 值
@@ -107,10 +107,6 @@ def extract_paragraph(sample, mode, max_doc_len, match_score_threshold):
 
         selected_para_len = len(doc['segmented_title']) + 1  # 注意拼接上 title，加1表示加上 <splitter>
         for para_info in para_infos:
-            # 过滤掉匹配得分小于阈值的段落
-            if para_info[0] < match_score_threshold:
-                continue
-
             para_id = para_info[-1]
             selected_para_len += len(doc['segmented_paragraphs'][para_id]) + 1  # 加1表示加上 <splitter>
             if selected_para_len <= max_doc_len:
@@ -182,12 +178,11 @@ if __name__ == '__main__':
     # mode="train"/"dev"/"test"
     mode = sys.argv[1]
     max_doc_len = int(sys.argv[2])
-    match_score_threshold = float(sys.argv[3])
 
     for line in sys.stdin:
         if not line.startswith('{'):
             continue
 
         sample = json.loads(line.strip())
-        extract_paragraph(sample, mode, max_doc_len, match_score_threshold)
+        extract_paragraph(sample, mode, max_doc_len)
         print(json.dumps(sample, ensure_ascii=False))

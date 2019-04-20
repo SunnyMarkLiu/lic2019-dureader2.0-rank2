@@ -53,7 +53,7 @@ def train(config_path):
                                 train_files=[global_config['data']['mrc_dataset']['train_path']],
                                 badcase_sample_log_file=global_config['data']['train_badcase_save_file'])
 
-    logging.info('Building vocabulary from train text set')
+    logging.info(f"Building {global_config['data']['data_type']} vocabulary from train {global_config['data']['data_type']} text set")
     vocab = Vocab()
     for word in train_brc_dataset.word_iter('train'):  # 根据 train 构建词典
         vocab.add(word)
