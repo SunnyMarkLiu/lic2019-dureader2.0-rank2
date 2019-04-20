@@ -8,7 +8,6 @@
 @time  : 2019/4/5 16:49
 """
 import sys
-
 sys.path.append('../')
 
 import sys
@@ -16,11 +15,42 @@ import json
 import itertools
 import numpy as np
 from utils.metric_util import metric_max_over_ground_truths, f1_score
+from utils.metric_util import read_data_to_dict, compute_bleu_rouge
 import warnings
 from zhon.hanzi import punctuation
+from check.metric.rouge import RougeL
+from check.metric.bleu import BLEUWithBonus
+
 warnings.filterwarnings("ignore")
 punc_filtered = set(punctuation)
 punc_filtered.add(u'<splitter>')
+
+alpha, beta = 1, 1
+bleu_eval = BLEUWithBonus(4, alpha=alpha, beta=beta)
+rouge_eval = RougeL(alpha=alpha, beta=beta, gamma=1.2)
+
+def calc_one_sample_metric(sample):
+    """ 计算一个样本的 rouge-l 和 bleu4 分数 """
+    pred_answers, ref_answers = [], []
+    pred_answers.append({'question_id': sample['question_id'],
+                         'question_type': sample['question_type'],
+                         'answers': [''.join(ans) for ans in sample['fake_answers']],
+                         'entity_answers': [[]],
+                         'yesno_answers': []})
+    ref_answers.append({'question_id': sample['question_id'],
+                        'question_type': sample['question_type'],
+                        'segmented_question': sample['segmented_question'],
+                        'answers': [''.join(seg_ans) for seg_ans in sample['segmented_answers']],
+                        'entity_answers': [[]],
+                        'yesno_answers': [],
+                        'documents': sample['documents']})
+
+    pred_dict = read_data_to_dict(pred_answers)
+    ref_dict = read_data_to_dict(ref_answers, is_ref=True)
+
+    metrics = compute_bleu_rouge(pred_dict, ref_dict)
+    rouge_l, bleu4 = metrics['ROUGE-L'], metrics['BLEU-4']
+    return rouge_l, bleu4
 
 
 def split_list_by_specific_value(iterable, splitters):
@@ -203,6 +233,11 @@ def gen_trainable_dataset(sample, debug=False):
     trainable_sample['best_match_scores'] = multi_best_match_score
     trainable_sample['answer_labels'] = multi_best_start_end_idx
     trainable_sample['fake_answers'] = multi_best_fake_answers
+
+    # 计算当前抽取到的 fake asnwer 的 ROUGE-L 和 BLEU4 分数
+    rouge_l, bleu4 = calc_one_sample_metric(trainable_sample)
+    trainable_sample['ceil_rouge_l'] = rouge_l
+    trainable_sample['ceil_bleu4'] = bleu4
 
     return trainable_sample
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-data_version='dureader_2.0_v2'
+data_version='dureader_2.0_v3'
 
 #------------------------ train raw data ------------------------
 source_raw_dir="../input/${data_version}/raw/trainset/"

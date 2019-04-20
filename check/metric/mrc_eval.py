@@ -14,6 +14,7 @@ from metric.bleu import BLEUWithBonus
 from metric.rouge import RougeL
 from collections import Counter
 from pprint import pprint
+from tqdm import tqdm
 
 EMPTY = ''
 YESNO_LABELS = set(['Yes', 'No', 'Depends'])
@@ -144,7 +145,7 @@ def main(args):
         pred_result = read_file(args.pred_file)
         ref_result = read_file(args.ref_file, is_ref=True)
         print('calc...')
-        for qid, results in ref_result.items():
+        for qid, results in tqdm(ref_result.items()):
             cand_result = pred_result.get(qid, {})
             #pred_answers = cand_result.get('answers', [EMPTY])[0]
             pred_answers = cand_result.get('fake_answers', [])

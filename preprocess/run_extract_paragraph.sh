@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-data_version='dureader_2.0_v2'
+data_version='dureader_2.0_v3'
 
 # ---------- Hyperparameters ----------
 MAX_DOC_LEN=500     # Maximum length of document

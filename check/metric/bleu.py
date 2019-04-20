@@ -5,7 +5,7 @@ import math
 import json
 from collections import defaultdict
 import sys
-import common
+from check.metric import common
 # reload(sys)
 # sys.setdefaultencoding("utf-8")
 
