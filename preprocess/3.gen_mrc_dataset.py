@@ -74,7 +74,7 @@ def contain_sublist(passage, answer):
     return start, end
 
 
-def gen_trainable_dataset(sample, debug=False):
+def gen_trainable_dataset(sample):
     trainable_sample = {
         'question_id': sample['question_id'],
         'fact_or_opinion': sample['fact_or_opinion'],
@@ -229,6 +229,9 @@ def gen_trainable_dataset(sample, debug=False):
         multi_best_start_end_idx.append([best_match_start_idx, best_match_end_idx])
         multi_best_fake_answers.append(best_fake_answer)
 
+        # best_match_doc_id 的 is_selected 设置为 true，如果为false，可实现进行纠正
+        trainable_sample['documents'][best_match_doc_id]['is_selected'] = True
+
     trainable_sample['best_match_doc_ids'] = multi_best_match_doc_ids
     trainable_sample['best_match_scores'] = multi_best_match_score
     trainable_sample['answer_labels'] = multi_best_start_end_idx
@@ -248,6 +251,6 @@ if __name__ == '__main__':
             continue
 
         sample = json.loads(line.strip())
-        trainable_sample = gen_trainable_dataset(sample, debug=False)
+        trainable_sample = gen_trainable_dataset(sample)
         if trainable_sample is not None:
             print(json.dumps(trainable_sample, ensure_ascii=False))
