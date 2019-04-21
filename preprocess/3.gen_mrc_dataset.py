@@ -34,7 +34,8 @@ def calc_one_sample_metric(sample):
     pred_answers, ref_answers = [], []
     pred_answers.append({'question_id': sample['question_id'],
                          'question_type': sample['question_type'],
-                         'answers': [''.join(ans) for ans in sample['fake_answers']],
+                         # 取 gold fake answer 作为预测的答案
+                         'answers': [''.join(sample['fake_answers'][sample['best_match_scores'].index(max(sample['best_match_scores']))])],
                          'entity_answers': [[]],
                          'yesno_answers': []})
     ref_answers.append({'question_id': sample['question_id'],
@@ -113,7 +114,7 @@ def gen_trainable_dataset(sample):
         best_match_doc_id = -1
         best_match_start_idx = -1
         best_match_end_idx = -1
-        best_fake_answer = ''
+        best_fake_answer = ['']
         for doc_id, doc in enumerate(trainable_sample['documents']):
             # is_selected 并不准确，此处不能将 selected 为 false 的 doc 过滤掉
             # if not doc['is_selected'] or len(doc['segmented_passage']) == 0:

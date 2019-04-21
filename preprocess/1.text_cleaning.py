@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore")
 
 data_version = 'dureader_2.0_v3'
 
-jieba.load_userdict(f'../input/{data_version}/jieba_custom_dict.txt')      # 腾讯的词向量构成的词典和所有的 url 构成的词
+jieba.load_userdict(f'../input/{data_version}/jieba_custom_dict.txt')      # 抽取的entity和所有的 url 构成的词
 url_map_df = pd.read_csv(f'../input/{data_version}/url_mapping.csv', encoding='utf-8')
 url_map_dict = dict(zip(url_map_df['url'], url_map_df['url_map_id']))
 jieba_extractor = WordSegmentPOSKeywordExtractor()
