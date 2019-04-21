@@ -41,8 +41,7 @@ def calc_one_sample_metric(sample):
 
 data_version = 'dureader_2.0'
 
-all_rouge_l = []
-all_bleu4 = []
+all_rouge_l, all_bleu4 = [], []
 print(f"================== {data_version} train ceiling results ==================")
 print("search:")
 with open(f'../input/{data_version}/mrc_dataset/trainset/search.train.json', 'r') as f:
@@ -58,6 +57,7 @@ print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
 print()
 
 print("zhidao:")
+all_rouge_l, all_bleu4 = [], []
 with open(f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json', 'r') as f:
     lines = f.readlines()
     for line in tqdm(lines):
@@ -71,6 +71,7 @@ print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
 
 print(f"================== {data_version} dev ceiling results ==================")
 print("search:")
+all_rouge_l, all_bleu4 = [], []
 with open(f'../input/{data_version}/mrc_dataset/devset/search.dev.json', 'r') as f:
     lines = f.readlines()
     for line in tqdm(lines):
@@ -84,7 +85,36 @@ print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
 print()
 
 print("zhidao:")
+all_rouge_l, all_bleu4 = [], []
 with open(f'../input/{data_version}/mrc_dataset/devset/zhidao.dev.json', 'r') as f:
+    lines = f.readlines()
+    for line in tqdm(lines):
+        sample = json.loads(line.strip())
+        rouge_l, bleu4 = calc_one_sample_metric(sample)
+        all_rouge_l.append(rouge_l)
+        all_bleu4.append(bleu4)
+
+print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
+print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+
+print(f"================== {data_version} cleaned18 dev ceiling results ==================")
+print("search:")
+all_rouge_l, all_bleu4 = [], []
+with open(f'../input/{data_version}/mrc_dataset/devset/cleaned_18.search.dev.json', 'r') as f:
+    lines = f.readlines()
+    for line in tqdm(lines):
+        sample = json.loads(line.strip())
+        rouge_l, bleu4 = calc_one_sample_metric(sample)
+        all_rouge_l.append(rouge_l)
+        all_bleu4.append(bleu4)
+
+print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
+print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+print()
+
+print("zhidao:")
+all_rouge_l, all_bleu4 = [], []
+with open(f'../input/{data_version}/mrc_dataset/devset/cleaned_18.zhidao.dev.json', 'r') as f:
     lines = f.readlines()
     for line in tqdm(lines):
         sample = json.loads(line.strip())
