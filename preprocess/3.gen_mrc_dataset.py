@@ -31,6 +31,9 @@ rouge_eval = RougeL(alpha=alpha, beta=beta, gamma=1.2)
 
 def calc_one_sample_metric(sample):
     """ 计算一个样本的 rouge-l 和 bleu4 分数 """
+    if len(sample['best_match_scores']) == 0:   # bad case
+        return -1, -1
+
     pred_answers, ref_answers = [], []
     pred_answers.append({'question_id': sample['question_id'],
                          'question_type': sample['question_type'],
