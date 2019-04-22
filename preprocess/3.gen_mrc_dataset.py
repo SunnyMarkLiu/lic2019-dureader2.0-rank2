@@ -13,15 +13,15 @@ sys.path.append('../')
 import sys
 import json
 import itertools
-import numpy as np
+from utils.metric_util import normalize
 from utils.metric_util import metric_max_over_ground_truths, f1_score
 from utils.metric_util import read_data_to_dict, compute_bleu_rouge
-import warnings
 from zhon.hanzi import punctuation
 from check.metric.rouge import RougeL
 from check.metric.bleu import BLEUWithBonus
-
+import warnings
 warnings.filterwarnings("ignore")
+
 punc_filtered = set(punctuation)
 punc_filtered.add(u'<splitter>')
 
@@ -91,6 +91,13 @@ def gen_trainable_dataset(sample):
 
     # test data
     if 'segmented_answers' not in sample:
+
+        # 对 test 的 question，doc进行 normalize
+        trainable_sample['segmented_question'] = normalize(trainable_sample['segmented_question'])
+        for doc in trainable_sample['documents']:
+            doc['unnorm_segmented_passage'] = doc['segmented_passage']
+            doc['segmented_passage'] = normalize(doc['segmented_passage'])
+
         return trainable_sample
 
     if 'entity_answers' in sample:
@@ -106,6 +113,12 @@ def gen_trainable_dataset(sample):
     multi_best_start_end_idx = []
     multi_best_fake_answers = []
     multi_best_match_score = []
+
+    # text normalize
+    trainable_sample['segmented_question'] = normalize(trainable_sample['segmented_question'])
+    trainable_sample['segmented_answers'] = [normalize(answer) for answer in trainable_sample['segmented_answers']]
+    for doc in trainable_sample['documents']:
+        doc['segmented_passage'] = normalize(doc['segmented_passage'])
 
     for answer in trainable_sample['segmented_answers']:
         if answer == '' or len(answer) == 0: continue
@@ -127,24 +140,9 @@ def gen_trainable_dataset(sample):
             # ---------------- 直接定位答案 ----------------
             sub_start_idx, sub_end_idx = contain_sublist(doc['segmented_passage'], answer)
             if sub_start_idx == -1 or sub_end_idx == -1:
-                if answer[-1] == '。':
-                    # 去掉末尾的句号再查找
+                if answer[-1] in {'.', '!', '?', ';', ',', ' '}:
+                    # 去掉末尾的标点符号再查找
                     sub_start_idx, sub_end_idx = contain_sublist(doc['segmented_passage'], answer[:-1])
-                    if sub_start_idx == -1 or sub_end_idx == -1:
-                        if ',' in doc['segmented_passage'] or ';' in doc['segmented_passage']:
-                            doc_passage = np.array(doc['segmented_passage'])
-                            doc_passage[doc_passage == ','] = '，'
-                            doc_passage[doc_passage == ';'] = '；'
-                            if sum(doc_passage != np.array(doc['segmented_passage']).tolist()) > 0:  # 转换了再开始查找
-                                sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer[:-1])
-                else:
-                    # 将英文的标点符号,->，;->；再次定位查找
-                    if ',' in doc['segmented_passage'] or ';' in doc['segmented_passage']:
-                        doc_passage = np.array(doc['segmented_passage'])
-                        doc_passage[doc_passage == ','] = '，'
-                        doc_passage[doc_passage == ';'] = '；'
-                        if sum(doc_passage != np.array(doc['segmented_passage']).tolist()) > 0:   # 转换了再开始查找
-                            sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer)
 
             if sub_start_idx != -1 and sub_end_idx != -1:   # 定位到了答案
                 best_match_score = 1
@@ -153,45 +151,30 @@ def gen_trainable_dataset(sample):
                 best_match_end_idx = sub_end_idx
                 best_fake_answer = doc['segmented_passage'][best_match_start_idx: best_match_end_idx + 1]
                 break
-            else:
-                # 去掉<splitter>的答案直接定位，对于跨段落的答案
-                clean_passage = [token for token in doc['segmented_passage'] if token != '<splitter>']
-                sub_start_idx, sub_end_idx = contain_sublist(clean_passage, answer)
 
-                if sub_start_idx == -1 or sub_end_idx == -1:
-                    if answer[-1] == '。':
-                        # 去掉末尾的句号再查找
-                        sub_start_idx, sub_end_idx = contain_sublist(clean_passage, answer[:-1])
-                        if sub_start_idx == -1 or sub_end_idx == -1:
-                            if ',' in clean_passage or ';' in clean_passage:
-                                doc_passage = np.array(clean_passage)
-                                doc_passage[doc_passage == ','] = '，'
-                                doc_passage[doc_passage == ';'] = '；'
-                                if sum(doc_passage != np.array(clean_passage).tolist()) > 0:  # 转换了再开始查找
-                                    sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer[:-1])
-                    else:
-                        # 将英文的标点符号,->，;->；再次定位查找
-                        if ',' in clean_passage or ';' in clean_passage:
-                            doc_passage = np.array(clean_passage)
-                            doc_passage[doc_passage == ','] = '，'
-                            doc_passage[doc_passage == ';'] = '；'
-                            if sum(doc_passage != np.array(clean_passage).tolist()) > 0:  # 转换了再开始查找
-                                sub_start_idx, sub_end_idx = contain_sublist(doc_passage, answer)
+            # 去掉<splitter>的答案直接定位，对于跨段落的答案
+            clean_passage = [token for token in doc['segmented_passage'] if token != '<splitter>']
+            sub_start_idx, sub_end_idx = contain_sublist(clean_passage, answer)
 
-                if sub_start_idx != -1 and sub_end_idx != -1:   # 定位到了答案
-                    best_match_score = 1
-                    best_match_doc_id = doc_id
-                    best_match_start_idx = sub_start_idx
-                    best_match_end_idx = sub_end_idx
-                    best_fake_answer = clean_passage[best_match_start_idx: best_match_end_idx + 1]
+            if sub_start_idx == -1 or sub_end_idx == -1:
+                if answer[-1] in {'.', '!', '?', ';', ',', ' '}:
+                    # 去掉末尾的标点符号再查找
+                    sub_start_idx, sub_end_idx = contain_sublist(clean_passage, answer[:-1])
 
-                    # 定位 <splitter> 的下标进行删除
-                    splitter_idx = [index for index, value in enumerate(doc['segmented_passage']) if value == '<splitter>']
-                    doc['segmented_passage'] = clean_passage
-                    doc['pos_passage'] = [token for token in doc['pos_passage'] if token != '<splitter>']
-                    doc['keyword_passage'] = [value for index, value in enumerate(doc['keyword_passage']) if index not in splitter_idx]
-                    doc['passage_word_in_question'] = [value for index, value in enumerate(doc['passage_word_in_question']) if index not in splitter_idx]
-                    break
+            if sub_start_idx != -1 and sub_end_idx != -1:   # 定位到了答案
+                best_match_score = 1
+                best_match_doc_id = doc_id
+                best_match_start_idx = sub_start_idx
+                best_match_end_idx = sub_end_idx
+                best_fake_answer = clean_passage[best_match_start_idx: best_match_end_idx + 1]
+
+                # 定位 <splitter> 的下标进行删除
+                splitter_idx = [index for index, value in enumerate(doc['segmented_passage']) if value == '<splitter>']
+                doc['segmented_passage'] = clean_passage
+                doc['pos_passage'] = [token for token in doc['pos_passage'] if token != '<splitter>']
+                doc['keyword_passage'] = [value for index, value in enumerate(doc['keyword_passage']) if index not in splitter_idx]
+                doc['passage_word_in_question'] = [value for index, value in enumerate(doc['passage_word_in_question']) if index not in splitter_idx]
+                break
             # -------------------- 直接定位答案 end ----------------------------
 
             # 如果第一个段落中问题长度内不包含问题（test/dev）、问题+答案（train）的关键词，则从标题检索，from_start=0
@@ -202,7 +185,7 @@ def gen_trainable_dataset(sample):
             para1_pre_context = doc['segmented_passage'][check_para1_contex_start: check_para1_contex_end]
             para1_pre_context_words = set([token for token in para1_pre_context])
 
-            if len(set(ques_answer[0]).intersection(para1_pre_context_words)) > 0:  # TODO 只取 keywords
+            if len(set(ques_answer[0]).intersection(para1_pre_context_words)) > 0:
                 from_start = doc['title_len'] + 1
             else:
                 from_start = 0
@@ -210,11 +193,14 @@ def gen_trainable_dataset(sample):
             for start_idx in range(from_start, len(doc['segmented_passage'])):
                 # 开始的词不在答案中，或者，开始的词为标点符号或splitter，直接过滤
                 if doc['segmented_passage'][start_idx] not in answer_tokens or \
-                        doc['segmented_passage'][start_idx] in punc_filtered:
+                        (doc['segmented_passage'][start_idx] in punc_filtered and doc['segmented_passage'][start_idx] not in {'<', '(', '《', '"'}):
                     continue
 
                 for end_idx in range(len(doc['segmented_passage']) - 1, start_idx - 1, -1):
-                    if doc['segmented_passage'][end_idx] not in answer_tokens:
+                    # 结尾的 end_idx 后的连续三个词都不在答案中，扩大答案搜索的范围，防止因为某个词 fake answer 在 answer 中间断掉
+                    if (doc['segmented_passage'][end_idx] not in answer_tokens) and \
+                       (end_idx + 1 < len(doc['segmented_passage']) and doc['segmented_passage'][end_idx + 1] not in answer_tokens) and \
+                       (end_idx + 2 < len(doc['segmented_passage']) and doc['segmented_passage'][end_idx + 2] not in answer_tokens):
                         continue
 
                     span_tokens = doc['segmented_passage'][start_idx: end_idx + 1]

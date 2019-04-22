@@ -60,12 +60,11 @@ check_dataset = {
 }
 
 if data_version == 'dureader_2.0':
-    all_rouge_l, all_bleu4 = [], []
-
     for data_type in check_dataset.keys():
         print(f"================== {data_version} {data_type} ceiling results ==================")
         for search_zhidao in check_dataset[data_type].keys():
             print(f"{search_zhidao}:")
+            all_rouge_l, all_bleu4 = [], []
             with open(check_dataset[data_type][search_zhidao], 'r') as f:
                 lines = f.readlines()
                 for line in tqdm(lines):
@@ -80,23 +79,24 @@ if data_version == 'dureader_2.0':
 
 else:
     # V3开始生成mrcdataset的时候就计算了 ceil rouge-l 和 bleu，直接统计即可
-    all_rouge_l, all_bleu4 = [], []
-
     for data_type in check_dataset.keys():
         print(f"================== {data_version} {data_type} ceiling results ==================")
         for search_zhidao in check_dataset[data_type].keys():
             print(f"{search_zhidao}:")
+            all_rouge_l, all_bleu4 = [], []
             with open(check_dataset[data_type][search_zhidao], 'r') as f:
                 lines = f.readlines()
                 for line in tqdm(lines):
-                    try:
-                        sample = json.loads(line.strip())
-                    except:
-                        print(line.strip())
+                    if not line.startswith('{'):
+                        continue
+
+                    sample = json.loads(line.strip())
 
                     rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
-                    all_rouge_l.append(rouge_l)
-                    all_bleu4.append(bleu4)
+                    if rouge_l > -1:
+                        all_rouge_l.append(rouge_l)
+                    if bleu4 > -1:
+                        all_bleu4.append(bleu4)
 
             print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
             print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
