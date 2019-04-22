@@ -39,88 +39,65 @@ def calc_one_sample_metric(sample):
     return rouge_l, bleu4
 
 
-data_version = 'dureader_2.0'
+# dureader_2.0 / dureader_2.0_v3
+data_version = sys.argv[1]
 
-all_rouge_l, all_bleu4 = [], []
-print(f"================== {data_version} train ceiling results ==================")
-print("search:")
-with open(f'../input/{data_version}/mrc_dataset/trainset/search.train.json', 'r') as f:
-    lines = f.readlines()
-    for line in tqdm(lines):
-        sample = json.loads(line.strip())
-        rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(rouge_l)
-        all_bleu4.append(bleu4)
+check_dataset = {
+    'train': {
+        'search': f'../input/{data_version}/mrc_dataset/trainset/search.train.json',
+        'zhidao': f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json'
+    },
 
-print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
-print()
+    'dev': {
+        'search': f'../input/{data_version}/mrc_dataset/devset/search.dev.json',
+        'zhidao': f'../input/{data_version}/mrc_dataset/devset/zhidao.dev.json'
+    },
 
-print("zhidao:")
-all_rouge_l, all_bleu4 = [], []
-with open(f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json', 'r') as f:
-    lines = f.readlines()
-    for line in tqdm(lines):
-        sample = json.loads(line.strip())
-        rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(rouge_l)
-        all_bleu4.append(bleu4)
+    'cleaned18_dev': {
+        'search': f'../input/{data_version}/mrc_dataset/devset/cleaned_18.search.dev.json',
+        'zhidao': f'../input/{data_version}/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+    }
+}
 
-print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+if data_version == 'dureader_2.0':
+    all_rouge_l, all_bleu4 = [], []
 
-print(f"================== {data_version} dev ceiling results ==================")
-print("search:")
-all_rouge_l, all_bleu4 = [], []
-with open(f'../input/{data_version}/mrc_dataset/devset/search.dev.json', 'r') as f:
-    lines = f.readlines()
-    for line in tqdm(lines):
-        sample = json.loads(line.strip())
-        rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(rouge_l)
-        all_bleu4.append(bleu4)
+    for data_type in check_dataset.keys():
+        print(f"================== {data_version} {data_type} ceiling results ==================")
+        for search_zhidao in check_dataset[data_type].keys():
+            print(f"{search_zhidao}:")
+            with open(check_dataset[data_type][search_zhidao], 'r') as f:
+                lines = f.readlines()
+                for line in tqdm(lines):
+                    sample = json.loads(line.strip())
+                    rouge_l, bleu4 = calc_one_sample_metric(sample)
+                    all_rouge_l.append(rouge_l)
+                    all_bleu4.append(bleu4)
 
-print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
-print()
+            print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
+            print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+            print()
 
-print("zhidao:")
-all_rouge_l, all_bleu4 = [], []
-with open(f'../input/{data_version}/mrc_dataset/devset/zhidao.dev.json', 'r') as f:
-    lines = f.readlines()
-    for line in tqdm(lines):
-        sample = json.loads(line.strip())
-        rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(rouge_l)
-        all_bleu4.append(bleu4)
+else:
+    # V3开始生成mrcdataset的时候就计算了 ceil rouge-l 和 bleu，直接统计即可
+    all_rouge_l, all_bleu4 = [], []
 
-print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+    for data_type in check_dataset.keys():
+        print(f"================== {data_version} {data_type} ceiling results ==================")
+        for search_zhidao in check_dataset[data_type].keys():
+            print(f"{search_zhidao}:")
+            with open(check_dataset[data_type][search_zhidao], 'r') as f:
+                lines = f.readlines()
+                for line in tqdm(lines):
+                    try:
+                        sample = json.loads(line.strip())
+                    except:
+                        print(line.strip())
 
-print(f"================== {data_version} cleaned18 dev ceiling results ==================")
-print("search:")
-all_rouge_l, all_bleu4 = [], []
-with open(f'../input/{data_version}/mrc_dataset/devset/cleaned_18.search.dev.json', 'r') as f:
-    lines = f.readlines()
-    for line in tqdm(lines):
-        sample = json.loads(line.strip())
-        rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(rouge_l)
-        all_bleu4.append(bleu4)
+                    rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
+                    all_rouge_l.append(rouge_l)
+                    all_bleu4.append(bleu4)
 
-print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
-print()
-
-print("zhidao:")
-all_rouge_l, all_bleu4 = [], []
-with open(f'../input/{data_version}/mrc_dataset/devset/cleaned_18.zhidao.dev.json', 'r') as f:
-    lines = f.readlines()
-    for line in tqdm(lines):
-        sample = json.loads(line.strip())
-        rouge_l, bleu4 = calc_one_sample_metric(sample)
-        all_rouge_l.append(rouge_l)
-        all_bleu4.append(bleu4)
-
-print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+            print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
+            print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+            print()

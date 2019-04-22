@@ -96,7 +96,7 @@ def gen_trainable_dataset(sample):
     if 'entity_answers' in sample:
         trainable_sample['entity_answers'] = sample['entity_answers']
 
-    if len(sample['segmented_answers']) == 0:
+    if len(sample['segmented_answers']) == 0 or len(sample['documents']) == 0:
         return None
 
     trainable_sample['segmented_answers'] = sample['segmented_answers']
@@ -234,7 +234,8 @@ def gen_trainable_dataset(sample):
         multi_best_fake_answers.append(best_fake_answer)
 
         # best_match_doc_id 的 is_selected 设置为 true，如果为false，可实现进行纠正
-        trainable_sample['documents'][best_match_doc_id]['is_selected'] = True
+        if -1 < best_match_doc_id < len(trainable_sample['documents']):
+            trainable_sample['documents'][best_match_doc_id]['is_selected'] = True
 
     trainable_sample['best_match_doc_ids'] = multi_best_match_doc_ids
     trainable_sample['best_match_scores'] = multi_best_match_score

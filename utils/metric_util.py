@@ -99,7 +99,7 @@ def metric_over_ground_truth(metric_fn, prediction, ground_truth):
     return metric_fn(prediction, ground_truth)
 
 EMPTY = ''
-YESNO_LABELS = set(['Yes', 'No', 'Depends'])
+YESNO_LABELS = {'Yes', 'No', 'Depends'}
 
 
 def normalize(s):
