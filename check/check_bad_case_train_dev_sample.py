@@ -48,11 +48,7 @@ if __name__ == '__main__':
                     if not line.startswith('{'):
                         continue
 
-                    try:
-                        sample = json.loads(line.strip())
-                    except:
-                        pass
-
+                    sample = json.loads(line.strip())
                     rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
 
                     if rouge_l <= bad_case_rouge_l_threshold:
