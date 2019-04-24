@@ -89,9 +89,7 @@ else:
                 for line in tqdm(lines):
                     if not line.startswith('{'):
                         continue
-
                     sample = json.loads(line.strip())
-
                     rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
                     if rouge_l > -1:
                         all_rouge_l.append(rouge_l)
