@@ -51,10 +51,10 @@ for search_zhidao in original_train_files:
                     "_id": doc_count,
                     "_type": "_doc",
                     "_source": {
-                        'segmented_passage': ' '.join(doc['segmented_passage']),
-                        'pos_passage': ' '.join(doc['pos_passage']),
-                        'keyword_passage': ' '.join(list(map(str, doc['keyword_passage']))),
-                        'passage_word_in_question': ' '.join(list(map(str, doc['passage_word_in_question']))),
+                        'segmented_passage': '<es_splitter>'.join(doc['segmented_passage']),
+                        'pos_passage': '<es_splitter>'.join(doc['pos_passage']),
+                        'keyword_passage': '<es_splitter>'.join(list(map(str, doc['keyword_passage']))),
+                        'passage_word_in_question': '<es_splitter>'.join(list(map(str, doc['passage_word_in_question']))),
                         'title_len': doc['title_len'],
                         'source': search_zhidao
                     }

@@ -13,7 +13,6 @@ sys.path.append('../')
 import sys
 import json
 import itertools
-from utils.metric_util import normalize
 from utils.metric_util import metric_max_over_ground_truths, f1_score
 from utils.metric_util import read_data_to_dict, compute_bleu_rouge
 from zhon.hanzi import punctuation
@@ -76,6 +75,21 @@ def contain_sublist(passage, answer):
                 break
 
     return start, end
+
+
+norm_map = {
+    u"，": u",", u"。": u".", u"！": u"!",
+    u"？": u"?", u"；": u";",
+    u"（": u"(", u"）": u")",
+    u"【": u"[", u"】": u"]",
+    u"“": u"\"", u"”": u"\""
+}
+def normalize(segment_text):
+    text = '<mrc_splitter>'.join(segment_text)
+    for zh_token in norm_map:
+        if zh_token in text:
+            text = text.replace(zh_token, norm_map[zh_token])
+    return text.split('<mrc_splitter>')
 
 
 def gen_trainable_dataset(sample):

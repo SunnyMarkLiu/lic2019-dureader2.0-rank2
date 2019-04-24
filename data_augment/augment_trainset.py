@@ -82,7 +82,7 @@ def augment_new_sample(sample, search_zhidao):
 
     original_docs = []
     for doc in sample['documents']:
-        original_docs.append(' '.join(doc['segmented_passage']))  # 内容和 insert to ES 一致
+        original_docs.append('<es_splitter>'.join(doc['segmented_passage']))  # 内容和 insert to ES 一致
 
     best_match_score_id = sample['best_match_scores'].index(max(sample['best_match_scores']))
     best_match_doc_id = sample['best_match_doc_ids'][best_match_score_id]
@@ -99,7 +99,7 @@ def augment_new_sample(sample, search_zhidao):
         final_new_docs = []
         ques_answers = [augment_sample['segmented_question'] + augment_sample['segmented_answers'][0]]
         for new_doc in fetched_new_docs:
-            if ' '.join(new_doc['segmented_passage']) == original_docs[best_match_doc_id]:
+            if '<es_splitter>'.join(new_doc['segmented_passage']) == original_docs[best_match_doc_id]:
                 continue
             final_new_docs.append(new_doc)
 
@@ -109,10 +109,10 @@ def augment_new_sample(sample, search_zhidao):
                 break
 
             new_doc['is_selected'] = False
-            new_doc['segmented_passage'] = new_doc['segmented_passage'].split(' ')
-            new_doc['pos_passage'] = new_doc['pos_passage'].split(' ')
-            new_doc['keyword_passage'] = new_doc['keyword_passage'].split(' ')
-            new_doc['passage_word_in_question'] = new_doc['passage_word_in_question'].split(' ')
+            new_doc['segmented_passage'] = new_doc['segmented_passage'].split('<es_splitter>')
+            new_doc['pos_passage'] = new_doc['pos_passage'].split('<es_splitter>')
+            new_doc['keyword_passage'] = list(map(int, new_doc['keyword_passage'].split('<es_splitter>')))
+            new_doc['passage_word_in_question'] = list(map(int, new_doc['passage_word_in_question'].split('<es_splitter>')))
 
             # 计算段落和 question + second_best_answer 的匹配得分 paragraph_match_score 和 most_related_para_id
             para_tokens = split_list_by_specific_value(new_doc['segmented_passage'], (splitter,))
@@ -174,8 +174,8 @@ def augment_new_sample(sample, search_zhidao):
         while i < len(fetched_new_docs[ans_i]):
             doc = fetched_new_docs[ans_i][i]
             i += 1
-            if ' '.join(doc['segmented_passage']) == original_docs[best_match_doc_id] or \
-                ' '.join(doc['segmented_passage']) == original_docs[second_best_match_doc_id]:
+            if '<es_splitter>'.join(doc['segmented_passage']) == original_docs[best_match_doc_id] or \
+                '<es_splitter>'.join(doc['segmented_passage']) == original_docs[second_best_match_doc_id]:
                 continue
 
             if answer != second_best_answer:
@@ -214,10 +214,10 @@ def augment_new_sample(sample, search_zhidao):
 
         while doc_i < best_match_doc_id:
             new_doc = final_new_docs.pop()
-            new_doc['segmented_passage'] = new_doc['segmented_passage'].split(' ')
-            new_doc['pos_passage'] = new_doc['pos_passage'].split(' ')
-            new_doc['keyword_passage'] = new_doc['keyword_passage'].split(' ')
-            new_doc['passage_word_in_question'] = new_doc['passage_word_in_question'].split(' ')
+            new_doc['segmented_passage'] = new_doc['segmented_passage'].split('<es_splitter>')
+            new_doc['pos_passage'] = new_doc['pos_passage'].split('<es_splitter>')
+            new_doc['keyword_passage'] = list(map(int, new_doc['keyword_passage'].split('<es_splitter>')))
+            new_doc['passage_word_in_question'] = list(map(int, new_doc['passage_word_in_question'].split('<es_splitter>')))
 
             # 计算段落和 question + second_best_answer 的匹配得分 paragraph_match_score 和 most_related_para_id
             para_tokens = split_list_by_specific_value(new_doc['segmented_passage'], (splitter,))
@@ -232,10 +232,10 @@ def augment_new_sample(sample, search_zhidao):
 
         while doc_i < len(augment_sample['documents']):
             new_doc = final_new_docs.pop()
-            new_doc['segmented_passage'] = new_doc['segmented_passage'].split(' ')
-            new_doc['pos_passage'] = new_doc['pos_passage'].split(' ')
-            new_doc['keyword_passage'] = new_doc['keyword_passage'].split(' ')
-            new_doc['passage_word_in_question'] = new_doc['passage_word_in_question'].split(' ')
+            new_doc['segmented_passage'] = new_doc['segmented_passage'].split('<es_splitter>')
+            new_doc['pos_passage'] = new_doc['pos_passage'].split('<es_splitter>')
+            new_doc['keyword_passage'] = list(map(int, new_doc['keyword_passage'].split('<es_splitter>')))
+            new_doc['passage_word_in_question'] = list(map(int, new_doc['passage_word_in_question'].split('<es_splitter>')))
 
             # 计算段落和 question + second_best_answer 的匹配得分 paragraph_match_score 和 most_related_para_id
             para_tokens = split_list_by_specific_value(new_doc['segmented_passage'], (splitter,))
