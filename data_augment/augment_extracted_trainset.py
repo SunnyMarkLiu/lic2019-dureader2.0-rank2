@@ -127,6 +127,9 @@ def augment_new_sample(sample, search_zhidao):
 
             doc_i += 1
 
+        # 去掉 document 中可能的 None
+        augment_sample['documents'] = [doc for doc in augment_sample['documents'] if doc is not None]
+
         return augment_sample
 
     # -------------------- answers > 1 个的 ----------------
@@ -247,6 +250,9 @@ def augment_new_sample(sample, search_zhidao):
 
             augment_sample['documents'][doc_i] = new_doc
             doc_i += 1
+
+        # 去掉 document 中可能的 None
+        augment_sample['documents'] = [doc for doc in augment_sample['documents'] if doc is not None]
 
         return augment_sample
 

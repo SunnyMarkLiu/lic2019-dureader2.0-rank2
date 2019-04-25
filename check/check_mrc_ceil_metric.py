@@ -48,6 +48,11 @@ check_dataset = {
         'zhidao': f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json'
     },
 
+    'aug_train': {
+        'search': f'../input/{data_version}/mrc_dataset/aug_trainset/search.train.json',
+        'zhidao': f'../input/{data_version}/mrc_dataset/aug_trainset/zhidao.train.json'
+    },
+
     'dev': {
         'search': f'../input/{data_version}/mrc_dataset/devset/search.dev.json',
         'zhidao': f'../input/{data_version}/mrc_dataset/devset/zhidao.dev.json'
@@ -89,7 +94,10 @@ else:
                 for line in tqdm(lines):
                     if not line.startswith('{'):
                         continue
-                    sample = json.loads(line.strip())
+                    try:
+                        sample = json.loads(line.strip())
+                    except:
+                        pass
                     rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
                     if rouge_l > -1:
                         all_rouge_l.append(rouge_l)
