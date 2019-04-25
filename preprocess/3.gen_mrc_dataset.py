@@ -255,7 +255,11 @@ if __name__ == '__main__':
         if not line.startswith('{'):
             continue
 
-        sample = json.loads(line.strip())
+        try:
+            sample = json.loads(line.strip())
+        except:
+            continue
+
         trainable_sample = gen_trainable_dataset(sample)
         if trainable_sample is not None:
             print(json.dumps(trainable_sample, ensure_ascii=False))
