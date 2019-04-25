@@ -16,6 +16,13 @@ nohup cat ${source_cleaned_dir}split_search_03 |python 2.extract_paragraph.py tr
 nohup cat ${source_cleaned_dir}split_search_04 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_04 2>&1 &
 nohup cat ${source_cleaned_dir}split_search_05 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_05 2>&1 &
 nohup cat ${source_cleaned_dir}split_search_06 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_06 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_07 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_07 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_08 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_08 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_09 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_09 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_10 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_10 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_11 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_11 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_12 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_12 2>&1 &
+nohup cat ${source_cleaned_dir}split_search_13 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_search_13 2>&1 &
 
 nohup cat ${source_cleaned_dir}split_zhidao_00 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_00 2>&1 &
 nohup cat ${source_cleaned_dir}split_zhidao_01 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_01 2>&1 &
@@ -24,6 +31,13 @@ nohup cat ${source_cleaned_dir}split_zhidao_03 |python 2.extract_paragraph.py tr
 nohup cat ${source_cleaned_dir}split_zhidao_04 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_04 2>&1 &
 nohup cat ${source_cleaned_dir}split_zhidao_05 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_05 2>&1 &
 nohup cat ${source_cleaned_dir}split_zhidao_06 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_06 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_07 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_07 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_08 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_08 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_09 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_09 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_10 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_10 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_11 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_11 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_12 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_12 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao_13 |python 2.extract_paragraph.py train ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao_13 2>&1 &
 
 #------------------------ extract cleaned dev paragraph ------------------------
 cleaned_devset_dir="../input/${data_version}/cleaned/devset/"
@@ -41,6 +55,8 @@ target_extracted_dir="../input/${data_version}/extracted/testset/"
 
 nohup cat ${source_cleaned_dir}split_search1_00 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} > ${target_extracted_dir}split_search1_00 2>&1 &
 nohup cat ${source_cleaned_dir}split_search1_01 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} > ${target_extracted_dir}split_search1_01 2>&1 &
+nohup cat ${source_cleaned_dir}split_search1_02 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} > ${target_extracted_dir}split_search1_02 2>&1 &
 
 nohup cat ${source_cleaned_dir}split_zhidao1_00 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao1_00 2>&1 &
 nohup cat ${source_cleaned_dir}split_zhidao1_01 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao1_01 2>&1 &
+nohup cat ${source_cleaned_dir}split_zhidao1_02 |python 2.extract_paragraph.py test ${MAX_DOC_LEN} > ${target_extracted_dir}split_zhidao1_02 2>&1 &

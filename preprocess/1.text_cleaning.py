@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore")
 
 data_version = 'dureader_2.0_v3'
 
-jieba.load_userdict(f'../input/{data_version}/jieba_custom_dict.txt')      # 抽取的entity和所有的 url 构成的词
+jieba.load_userdict(f'../input/{data_version}/all_url_dict.txt')      # 抽取的entity和所有的 url 构成的词
 url_map_df = pd.read_csv(f'../input/{data_version}/url_mapping.csv', encoding='utf-8')
 url_map_dict = dict(zip(url_map_df['url'], url_map_df['url_map_id']))
 jieba_extractor = WordSegmentPOSKeywordExtractor()
@@ -96,7 +96,7 @@ def _clean_duplacte_words(text):
     去除很多重复的词和标点符号
     """
     reg = r'([^0-9IX]+)(\1){2,}'
-    for i in range(4):
+    for i in range(6):
         temp = text
         text = re.sub(reg, lambda m: m.group(1), text)
         if len(text) == len(temp):

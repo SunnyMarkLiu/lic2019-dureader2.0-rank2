@@ -8,6 +8,7 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/4/7 15:29
 """
+import sys
 import re
 import json
 import pandas as pd
@@ -42,7 +43,8 @@ def _fetch_urls(text):
         all_urls.extend(valid_urls)
 
 
-data_version = 'dureader_2.0_v3'
+# dureader_2.0 / dureader_2.0_v3
+data_version = sys.argv[1]
 
 for raw_f in [f'../input/{data_version}/raw/trainset/search.train.json',
               f'../input/{data_version}/raw/trainset/zhidao.train.json',
