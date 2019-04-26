@@ -9,12 +9,11 @@ data:
   data_type: zhidao
   mrc_dataset:
     train_path: input/dureader_2.0/mrc_dataset/trainset/zhidao.train.json
-    dev_path: input/dureader_2.0_v3/mrc_dataset/devset/zhidao.dev.json
-    test_path: input/dureader_2.0_v3/mrc_dataset/testset/zhidao.test1.json
+    dev_path: input/dureader_2.0/mrc_dataset/devset/zhidao.dev.json
+    test_path: input/dureader_2.0/mrc_dataset/testset/zhidao.test1.json
 
-  data_cache_dir: input/dureader_2.0_v3/mrc_data_cache
-
-  train_badcase_save_file: logs/search/train_badcase_zhidao.json
+  data_cache_dir: input/dureader_2.0/cache
+  train_badcase_save_path: ./logs/
   embeddings_file: ../../pretrained_embeddings/chinese/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5
   max_p_num: 5
   max_p_len: 500
