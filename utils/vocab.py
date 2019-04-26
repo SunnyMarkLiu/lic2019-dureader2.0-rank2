@@ -58,6 +58,7 @@ class Vocab(LoggerMixin):
         # url_xxx 的词统一转成 url # TODO 更多的标准化，如中英文标点符号的标准化
         if 'url_' in token:
             token = 'url'
+        # 针对 OOV 的词进行标准化清洗，如 1. 3. 4. 类似的词
 
         # 繁体字转换
         token = HanziConv.toSimplified(token)
