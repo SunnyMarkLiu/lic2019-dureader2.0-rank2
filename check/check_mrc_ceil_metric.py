@@ -17,10 +17,14 @@ from utils.metric_util import read_data_to_dict, compute_bleu_rouge
 
 def calc_one_sample_metric(sample):
     """ 计算一个样本的 rouge-l 和 bleu4 分数 """
+    if len(sample['best_match_scores']) == 0:   # bad case
+        return -1, -1
+
     pred_answers, ref_answers = [], []
     pred_answers.append({'question_id': sample['question_id'],
                          'question_type': sample['question_type'],
-                         'answers': [''.join(ans) for ans in sample['fake_answers']],
+                         # 取 gold fake answer 作为预测的答案
+                         'answers': [''.join(sample['fake_answers'][sample['best_match_scores'].index(max(sample['best_match_scores']))])],
                          'entity_answers': [[]],
                          'yesno_answers': []})
     ref_answers.append({'question_id': sample['question_id'],
