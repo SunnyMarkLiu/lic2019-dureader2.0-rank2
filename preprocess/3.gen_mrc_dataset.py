@@ -130,7 +130,7 @@ def gen_trainable_dataset(sample):
 
     # text normalize
     trainable_sample['segmented_question'] = normalize(trainable_sample['segmented_question'])
-    trainable_sample['segmented_answers'] = [normalize(answer) for answer in trainable_sample['segmented_answers']]
+    trainable_sample['segmented_answers'] = [normalize(answer) for answer in trainable_sample['segmented_answers'] if answer !=  [' '] and answer !=  ['']]
     for doc in trainable_sample['documents']:
         doc['segmented_passage'] = normalize(doc['segmented_passage'])
 
