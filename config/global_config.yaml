@@ -2,17 +2,16 @@ global:
   random_seed: 42
   gpu: 0                # GPU id for training and testing
   num_data_workers: 5   # for data loader
-  model: bidaf    # 'match-lstm', 'match-lstm+', 'r-net', 'm-reader' or 'base'
-  # Note that 'base' model is customized by base_model.yaml
+  model: match_lstm    # 'match-lstm', 'match-lstm+', 'r-net', 'm-reader' or 'qanet'
 
 data:
   data_type: zhidao
   mrc_dataset:
-    train_path: input/dureader_2.0/mrc_dataset/trainset/zhidao.train.json
-    dev_path: input/dureader_2.0/mrc_dataset/devset/zhidao.dev.json
-    test_path: input/dureader_2.0/mrc_dataset/testset/zhidao.test1.json
+    train_path: input/demo/zhidao.train.json
+    dev_path: input/demo/zhidao.dev.json
+    test_path: input/demo/zhidao.test1.json
 
-  data_cache_dir: input/dureader_2.0/cache
+  data_cache_dir: input/demo/cache
   train_badcase_save_path: ./logs/
   embeddings_file: ../../pretrained_embeddings/chinese/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5
   max_p_num: 5
@@ -24,7 +23,7 @@ bidaf:  # BiDAF model config
   embed_dim: 300
 
 train:
-  optimizer: 'adamax'  # adam, sgd, adamax, adadelta(default is adamax)
+  optimizer: 'adam'  # adam, sgd, adamax, adadelta(default is adamax)
   learning_rate: 0.002  # only for sgd
   clip_grad_norm: 5
 

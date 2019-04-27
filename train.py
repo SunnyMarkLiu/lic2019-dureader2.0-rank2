@@ -18,8 +18,9 @@ from pprint import pprint
 from utils.config_util import init_logging, read_config
 from utils.dataset import Dataset
 from utils.vocab import Vocab
-from models import BiDAF, RNet
-
+import torch.optim as optim
+from torchmrc.models import MatchLSTM
+from torchmrc.modules.loss import MyNLLLoss
 logger = logging.getLogger(__name__)
 
 
@@ -54,6 +55,7 @@ def train(config_path):
     seed_torch(global_config['global']['random_seed'])
     device = torch.device("cuda:{}".format(global_config['global']['gpu']) if torch.cuda.is_available() else "cpu")
 
+    # -------------------- Data preparing -------------------
     logger.info('reading dureader dataset [{}]'.format(global_config['data']['data_type']))
     logging.info('create train BRCDataset')
     train_badcase_save_file = '{}/{}/train_badcase.log'.format(global_config['data']['train_badcase_save_path'],
@@ -98,15 +100,90 @@ def train(config_path):
     model_choose = global_config['global']['model']
     logger.info(f"create {model_choose} model")
 
-    if model_choose == 'bidaf':
-        model = BiDAF()
-    elif model_choose == 'rnet':
-        model = RNet()
+    # NOTE: embedding matrix should be float32, to avoid LSTM CUDNN_STATUS_BAD_PARAM error
+    embedding_matrix = torch.from_numpy(np.array(vocab.embedding_matrix, dtype=np.float32)).to(device)
+
+    # ----------------- build neural network model, loss func, optimizer, scheduler ------------------
+    if model_choose == 'match_lstm':
+        model = MatchLSTM(max_p_num=global_config['data']['max_p_num'],
+                          max_p_len=global_config['data']['max_p_len'],
+                          max_q_len=global_config['data']['max_q_len'],
+                          vocab_size=vocab.size(),
+                          embed_dim=vocab.embed_dim,
+                          rnn_mode='LSTM',
+                          hidden_size=100,
+                          encoder_bidirection=True,
+                          match_lstm_bidirection=True,
+                          gated_attention=True,
+                          rnn_dropout=0.1,
+                          enable_layer_norm=False,
+                          ptr_bidirection=False,
+                          embed_matrix=embedding_matrix,
+                          embed_trainable=False,
+                          embed_bn=False,
+                          padding_idx=vocab.get_id(vocab.pad_token),
+                          embed_dropout=0,
+                          device=device)
+    # elif model_choose == 'rnet':
+    #     model = RNet()
     else:
         raise ValueError('model "%s" in config file not recoginized' % model_choose)
 
     model = model.to(device)
+    print('\n', model, '\n')
 
+    # optimizer
+    optimizer_choose = global_config['train']['optimizer']
+    optimizer_lr = global_config['train']['learning_rate']
+    optimizer_param = filter(lambda p: p.requires_grad, model.parameters())
+
+    if optimizer_choose == 'adamax':
+        optimizer = optim.Adamax(optimizer_param)
+    elif optimizer_choose == 'adadelta':
+        optimizer = optim.Adadelta(optimizer_param)
+    elif optimizer_choose == 'adam':
+        optimizer = optim.Adam(optimizer_param)
+    elif optimizer_choose == 'sgd':
+        optimizer = optim.SGD(optimizer_param, lr=optimizer_lr)
+    else:
+        raise ValueError('optimizer "%s" in config file not recoginized' % optimizer_choose)
+
+    # loss function
+    criterion = MyNLLLoss()
+    # training arguments
+    logger.info('start training...')
+    train_batch_size = global_config['train']['batch_size']
+    valid_batch_size = global_config['train']['valid_batch_size']
+
+    question = [[1, 2, 3, 4, 5, 6, 7, 8, 9],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
+
+                [11, 22, 33, 44, 55, 66, 77, 88, 99],
+                [11, 22, 33, 44, 55, 66, 77, 88, 99],
+                [11, 22, 33, 44, 55, 66, 77, 88, 99],
+                [11, 22, 33, 44, 55, 66, 77, 88, 99]
+                ]
+    question = torch.tensor(question, dtype=torch.long)
+
+    context = [[110, 210, 310, 410, 510, 610, 720, 850, 920, 760, 820, 90],
+               [120, 220, 320, 420, 520, 630, 730, 860, 930, 750, 840, 79],
+               [130, 230, 340, 430, 530, 640, 749, 779, 749, 749, 759, 79],
+               [140, 240, 330, 440, 540, 650, 750, 880, 950, 739, 769, 79],
+
+               [11, 222, 332, 443, 554, 662, 776, 887, 969, 11, 22, 33],
+               [111, 223, 333, 44, 55, 66, 77, 88, 99, 33, 33, 44],
+               [11, 252, 303, 424, 535, 666, 717, 848, 949, 55, 55, 33],
+               [11, 220, 133, 414, 575, 656, 747, 838, 929, 79, 79, 79]
+               ]
+    context = torch.tensor(context, dtype=torch.long)
+    model.eval()
+    ans_range_prop, ans_range, vis_param= model.forward(question.to(device), context.to(device), passage_cnts=[4, 4])
+    print()
+    print(ans_range_prop)
+    print(ans_range)
+    # print(vis_param)
 
 if __name__ == '__main__':
     init_logging()

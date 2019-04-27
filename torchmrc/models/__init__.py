@@ -5,11 +5,6 @@
 
 @author: Qing Liu, sunnymarkliu@163.com
 @github: https://github.com/sunnymarkLiu
-@time  : 2019/4/11 00:44
+@time  : 2019/4/26 15:24
 """
-import torch.nn as nn
-
-class BiDAF(nn.Module):
-
-    def forward(self, *input):
-        pass
+from torchmrc.models.match_lstm import MatchLSTM

@@ -5,7 +5,6 @@
 
 @author: Qing Liu, sunnymarkliu@163.com
 @github: https://github.com/sunnymarkLiu
-@time  : 2019/4/5 01:00
+@time  : 2019/4/26 21:50
 """
-from models.bidaf import BiDAF
-from models.rnet import RNet
+from torchmrc.modules.encoder.rnn import RNNBase
