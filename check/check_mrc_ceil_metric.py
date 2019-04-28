@@ -16,7 +16,7 @@ from utils.metric_util import read_data_to_dict, compute_bleu_rouge
 
 
 def calc_one_sample_metric(sample):
-    """ 计算一个样本的 rouge-l 和 bleu4 分数 """
+    """ 计算 V1 数据一个样本的 rouge-l 和 bleu4 分数 """
     if len(sample['best_match_scores']) == 0:   # bad case
         return -1, -1
 
@@ -43,71 +43,57 @@ def calc_one_sample_metric(sample):
     return rouge_l, bleu4
 
 
-# dureader_2.0 / dureader_2.0_v3
-data_version = sys.argv[1]
-
 check_dataset = {
-    'train': {
-        'search': f'../input/{data_version}/mrc_dataset/trainset/search.train.json',
-        'zhidao': f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json'
+
+    'baidu_train': {
+        'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/search.train.json',
+        'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/zhidao.train.json'
     },
 
-    'aug_train': {
-        'search': f'../input/{data_version}/mrc_dataset/aug_trainset/search.train.json',
-        'zhidao': f'../input/{data_version}/mrc_dataset/aug_trainset/zhidao.train.json'
+    'baidu_dev': {
+        'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/search.dev.json',
+        'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/zhidao.dev.json'
     },
+
+    'train': {
+        'search': f'../input/dureader_2.0_v3/mrc_dataset/trainset/search.train.json',
+        'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/trainset/zhidao.train.json'
+    },
+
+    # 'aug_train': {
+    #     'search': f'../input/dureader_2.0_v3/mrc_dataset/aug_trainset/search.train.json',
+    #     'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/aug_trainset/zhidao.train.json'
+    # },
 
     'dev': {
-        'search': f'../input/{data_version}/mrc_dataset/devset/search.dev.json',
-        'zhidao': f'../input/{data_version}/mrc_dataset/devset/zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v3/mrc_dataset/devset/search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/devset/zhidao.dev.json'
     },
 
     'cleaned18_dev': {
-        'search': f'../input/{data_version}/mrc_dataset/devset/cleaned_18.search.dev.json',
-        'zhidao': f'../input/{data_version}/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v3/mrc_dataset/devset/cleaned_18.search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
     }
 }
 
-if data_version == 'dureader_2.0':
-    for data_type in check_dataset.keys():
-        print(f"================== {data_version} {data_type} ceiling results ==================")
-        for search_zhidao in check_dataset[data_type].keys():
-            print(f"{search_zhidao}:")
-            all_rouge_l, all_bleu4 = [], []
-            with open(check_dataset[data_type][search_zhidao], 'r') as f:
-                lines = f.readlines()
-                for line in tqdm(lines):
-                    sample = json.loads(line.strip())
-                    rouge_l, bleu4 = calc_one_sample_metric(sample)
+# V3开始生成mrcdataset的时候就计算了 ceil rouge-l 和 bleu，直接统计即可
+for data_type in check_dataset.keys():
+    print(f"================== dureader_2.0_v3 {data_type} ceiling results ==================")
+    for search_zhidao in check_dataset[data_type].keys():
+        print(f"{search_zhidao}:")
+        all_rouge_l, all_bleu4 = [], []
+        with open(check_dataset[data_type][search_zhidao], 'r') as f:
+            lines = f.readlines()
+            for line in tqdm(lines):
+                if not line.startswith('{'):
+                    continue
+                sample = json.loads(line.strip())
+                rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
+                if rouge_l > -1:
                     all_rouge_l.append(rouge_l)
+                if bleu4 > -1:
                     all_bleu4.append(bleu4)
 
-            print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-            print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
-            print()
-
-else:
-    # V3开始生成mrcdataset的时候就计算了 ceil rouge-l 和 bleu，直接统计即可
-    for data_type in check_dataset.keys():
-        print(f"================== {data_version} {data_type} ceiling results ==================")
-        for search_zhidao in check_dataset[data_type].keys():
-            print(f"{search_zhidao}:")
-            all_rouge_l, all_bleu4 = [], []
-            with open(check_dataset[data_type][search_zhidao], 'r') as f:
-                lines = f.readlines()
-                for line in tqdm(lines):
-                    if not line.startswith('{'):
-                        continue
-                    try:
-                        sample = json.loads(line.strip())
-                    except:
-                        pass
-                    rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
-                    if rouge_l > -1:
-                        all_rouge_l.append(rouge_l)
-                    if bleu4 > -1:
-                        all_bleu4.append(bleu4)
-
-            print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
-            print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
-            print()
+        print('mean rouge_l:', sum(all_rouge_l) / len(all_rouge_l))
+        print('mean bleu4:', sum(all_bleu4) / len(all_bleu4))
+        print()
