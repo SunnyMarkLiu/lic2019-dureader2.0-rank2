@@ -77,21 +77,6 @@ def contain_sublist(passage, answer):
     return start, end
 
 
-norm_map = {
-    u"，": u",", u"。": u".", u"！": u"!",
-    u"？": u"?", u"；": u";",
-    u"（": u"(", u"）": u")",
-    u"【": u"[", u"】": u"]",
-    u"“": u"\"", u"”": u"\""
-}
-def normalize(segment_text):
-    text = '<mrc_splitter>'.join(segment_text)
-    for zh_token in norm_map:
-        if zh_token in text:
-            text = text.replace(zh_token, norm_map[zh_token])
-    return text.split('<mrc_splitter>')
-
-
 def gen_trainable_dataset(sample):
     trainable_sample = {
         'question_id': sample['question_id'],
@@ -105,13 +90,6 @@ def gen_trainable_dataset(sample):
 
     # test data
     if 'segmented_answers' not in sample:
-
-        # 对 test 的 question，doc进行 normalize
-        trainable_sample['segmented_question'] = normalize(trainable_sample['segmented_question'])
-        for doc in trainable_sample['documents']:
-            doc['unnorm_segmented_passage'] = doc['segmented_passage']
-            doc['segmented_passage'] = normalize(doc['segmented_passage'])
-
         return trainable_sample
 
     if 'entity_answers' in sample:
@@ -127,12 +105,6 @@ def gen_trainable_dataset(sample):
     multi_best_start_end_idx = []
     multi_best_fake_answers = []
     multi_best_match_score = []
-
-    # text normalize
-    trainable_sample['segmented_question'] = normalize(trainable_sample['segmented_question'])
-    trainable_sample['segmented_answers'] = [normalize(answer) for answer in trainable_sample['segmented_answers'] if answer !=  [' '] and answer !=  ['']]
-    for doc in trainable_sample['documents']:
-        doc['segmented_passage'] = normalize(doc['segmented_passage'])
 
     for answer in trainable_sample['segmented_answers']:
         if answer == '' or len(answer) == 0: continue
@@ -151,7 +123,7 @@ def gen_trainable_dataset(sample):
             if len(doc['segmented_passage']) == 0:
                 continue
 
-            # ---------------- 直接定位答案 ----------------
+            # ---------------- 直接定位答案 start ----------------
             sub_start_idx, sub_end_idx = contain_sublist(doc['segmented_passage'], answer)
             if sub_start_idx == -1 or sub_end_idx == -1:
                 if answer[-1] in {'.', '!', '?', ';', ',', ' '}:
@@ -255,11 +227,8 @@ if __name__ == '__main__':
         if not line.startswith('{'):
             continue
 
-        try:
-            sample = json.loads(line.strip())
-        except:
-            continue
+        sample = json.loads(line.strip())
 
-        trainable_sample = gen_trainable_dataset(sample)
-        if trainable_sample is not None:
-            print(json.dumps(trainable_sample, ensure_ascii=False))
+        sample = gen_trainable_dataset(sample)
+        if sample is not None:
+            print(json.dumps(sample, ensure_ascii=False))

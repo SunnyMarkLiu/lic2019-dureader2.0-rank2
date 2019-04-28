@@ -21,7 +21,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def calc_paragraph_match_scores(doc, ques_answers):
+def calc_paragraph_match_scores(doc, question):
     """
     Train mode: For each document, calculate the match score between paragraph and question with answers.
     Test/Dev Mode: For each document, calculate the match score between paragraph and question.
@@ -30,38 +30,27 @@ def calc_paragraph_match_scores(doc, ques_answers):
 
     for para_id, para_tokens in enumerate(doc['segmented_paragraphs']):
         # 问题 + 答案组成的查询语句，baseline 中只采用答案，对于答案较短的情况存在缺陷
-        related_score = metric_max_over_ground_truths(f1_score, bleu_4, para_tokens, ques_answers)
+        related_score = metric_max_over_ground_truths(f1_score, bleu_4, para_tokens, question)
         match_scores.append(related_score)
     return match_scores
 
 
-def extract_paragraph(sample, mode, max_doc_len):
+def extract_paragraph(sample, max_doc_len):
     """
     对于训练集，计算每个 doc 的每个段落 para 与 question+answers 的 f1 值
     对于测试集和验证集，计算每个 doc 的每个段落 para 与 question 的 f1 值
     Args:
         sample: a sample in the dataset.
-        mode: string of ("train", "dev", "test"), indicate the type of dataset to process.
     """
     question = sample['segmented_question']
-    if mode == 'train':
-        answers = sample['segmented_answers']
-    else:  # dev/test
-        answers = None
-
     # predefined splitter
     splitter = u'<splitter>'
 
-    if answers:
-        ques_answers = [question + answer for answer in answers]
-    else:
-        ques_answers = [question]
-
     for doc_id, doc in enumerate(sample['documents']):
         # 计算每个doc的 paragraph 和查询（question、question+answer）的 f1 值
-        title_match_score = metric_max_over_ground_truths(f1_score, bleu_4, doc['segmented_title'], ques_answers)
+        title_match_score = metric_max_over_ground_truths(f1_score, bleu_4, doc['segmented_title'], question)
 
-        para_match_scores = calc_paragraph_match_scores(doc, ques_answers)
+        para_match_scores = calc_paragraph_match_scores(doc, question)
         para_infos = []
 
         for p_idx, (para_tokens, para_score) in enumerate(zip(doc['segmented_paragraphs'], para_match_scores)):
@@ -72,36 +61,6 @@ def extract_paragraph(sample, mode, max_doc_len):
         last_para_cut_idx = -1
         selected_para_ids = []
 
-        # 按照 match_score 降序排列，按照段落长度升序排列
-        para_infos.sort(key=lambda x: (-x[0], x[1]))
-        # 提取 top 段落的第一句话，作为可能的摘要信息
-        first_sent_tokens_in_para = []
-        first_sent_pos_in_para = []
-        first_sent_keyword_in_para = []
-        first_sent_winq_in_para = []
-
-        for para_info in para_infos[:6]:
-            para_tokens = doc['segmented_paragraphs'][para_info[-1]]
-            if '。' in para_tokens:
-                first_sent_idx = para_tokens.index('。')
-            elif '！' in para_tokens:
-                first_sent_idx = para_tokens.index('！')
-            else:
-                continue
-            first_sent_tokens_in_para.extend(para_tokens[:first_sent_idx+1])
-            first_sent_pos_in_para.extend(doc['pos_paragraphs'][para_info[-1]][:first_sent_idx + 1])
-            first_sent_keyword_in_para.extend(doc['keyword_paragraphs'][para_info[-1]][:first_sent_idx + 1])
-            first_sent_winq_in_para.extend(doc['paragraphs_word_in_question'][para_info[-1]][:first_sent_idx + 1])
-
-        doc['segmented_paragraphs'].append(first_sent_tokens_in_para)
-        doc['pos_paragraphs'].append(first_sent_pos_in_para)
-        doc['keyword_paragraphs'].append(first_sent_keyword_in_para)
-        doc['paragraphs_word_in_question'].append(first_sent_winq_in_para)
-
-        # 计算拼接的段落的匹配得分，重新排序
-        first_sent_para_score = metric_max_over_ground_truths(f1_score, bleu_4, first_sent_tokens_in_para, ques_answers)
-        para_match_scores.append(first_sent_para_score)
-        para_infos.append((first_sent_para_score, len(first_sent_tokens_in_para), len(doc['paragraphs_word_in_question'])-1))
         # 按照 match_score 降序排列，按照段落长度升序排列
         para_infos.sort(key=lambda x: (-x[0], x[1]))
 
@@ -130,7 +89,7 @@ def extract_paragraph(sample, mode, max_doc_len):
             last_seg_para = doc['segmented_paragraphs'][last_para_id][:last_para_cut_idx]
             segmented_paragraphs.append(last_seg_para)
 
-            paragraph_match_scores.append(metric_max_over_ground_truths(f1_score, bleu_4, last_seg_para, ques_answers))
+            paragraph_match_scores.append(metric_max_over_ground_truths(f1_score, bleu_4, last_seg_para, question))
             pos_paragraphs.append(doc['pos_paragraphs'][last_para_id][:last_para_cut_idx])
             keyword_paragraphs.append(doc['keyword_paragraphs'][last_para_id][:last_para_cut_idx])
             paragraphs_word_in_question.append(doc['paragraphs_word_in_question'][last_para_id][:last_para_cut_idx])
@@ -159,7 +118,6 @@ def extract_paragraph(sample, mode, max_doc_len):
         doc['keyword_passage'] = keyword_passage[:-1]
         doc['passage_word_in_question'] = passage_word_in_question[:-1]
         doc['paragraph_match_score'] = paragraph_match_scores
-
         doc['title_len'] = len(doc['segmented_title'])
 
         # remove useless infos
@@ -175,14 +133,12 @@ def extract_paragraph(sample, mode, max_doc_len):
 
 
 if __name__ == '__main__':
-    # mode="train"/"dev"/"test"
-    mode = sys.argv[1]
-    max_doc_len = int(sys.argv[2])
+    max_doc_len = int(sys.argv[1])
 
     for line in sys.stdin:
         if not line.startswith('{'):
             continue
 
         sample = json.loads(line.strip())
-        extract_paragraph(sample, mode, max_doc_len)
+        extract_paragraph(sample, max_doc_len)
         print(json.dumps(sample, ensure_ascii=False))
