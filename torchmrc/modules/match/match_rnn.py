@@ -182,12 +182,7 @@ class MatchRNN(torch.nn.Module):
         Hp = self.dropout(Hp)
         Hq = self.dropout(Hq)
 
-        print('Hp:', list(Hp.size()))
-        print('Hq:', list(Hq.size()))
-        print('Hq_mask:', list(Hq_mask.size()))
-
         left_hidden, left_para = self.left_match_rnn.forward(Hp, Hq, Hq_mask)
-        print('left_hidden:', list(left_hidden.size()))
 
         rtn_hidden = left_hidden
         rtn_para = {'left': left_para}

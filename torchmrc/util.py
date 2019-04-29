@@ -19,3 +19,4 @@ def compute_mask(v, padding_idx=0):
     """
     mask = torch.ne(v, padding_idx).float()
     return mask
+

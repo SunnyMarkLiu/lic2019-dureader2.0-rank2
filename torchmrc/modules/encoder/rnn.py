@@ -53,6 +53,9 @@ class RNNBase(torch.nn.Module):
 
         if enable_layer_norm:
             self.layer_norm = torch.nn.LayerNorm(input_size)
+
+        direction = 2 if bidirectional else 1
+        self.out_feature_size = hidden_size * direction
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -69,34 +72,56 @@ class RNNBase(torch.nn.Module):
         for t in b:
             torch.nn.init.constant_(t, 0)
 
-    def forward(self, v, mask):
+    def forward(self, seq_batch, mask, device='cpu'):
         # layer normalization
         if self.enable_layer_norm:
-            seq_len, batch, input_size = v.shape
-            v = v.view(-1, input_size)
-            v = self.layer_norm(v)
-            v = v.view(seq_len, batch, input_size)
+            seq_len, batch, input_size = seq_batch.shape
+            seq_batch = seq_batch.view(-1, input_size)
+            seq_batch = self.layer_norm(seq_batch)
+            seq_batch = seq_batch.view(seq_len, batch, input_size)
 
         # get sorted v
         lengths = mask.eq(1).long().sum(1)
-        lengths_sort, idx_sort = torch.sort(lengths, dim=0, descending=True)
-        _, idx_unsort = torch.sort(idx_sort, dim=0)
+        # 将 length 为 0 的 id 单独拿出来，非0的参与 rnn 的计算，0的后续直接拼接
+        empty_seq_idx = (lengths == 0).nonzero()
 
-        v_sort = v.index_select(1, idx_sort)
+        if empty_seq_idx.shape[0] != 0:   # 存在空的seq
+            empty_seq_idx = empty_seq_idx.view(empty_seq_idx.shape[0])
 
-        v_pack = torch.nn.utils.rnn.pack_padded_sequence(v_sort, lengths_sort)
+            not_empty_seq_idx = (lengths != 0).nonzero().to(device)
+            not_empty_seq_idx = not_empty_seq_idx.view(not_empty_seq_idx.shape[0])
+
+            not_empty_lengths = lengths.index_select(0, not_empty_seq_idx)
+            not_empty_seq = seq_batch.index_select(1, not_empty_seq_idx)
+        else:
+            not_empty_lengths = lengths
+            not_empty_seq = seq_batch
+
+        not_empty_lengths_sort, not_empty_idx_sort = torch.sort(not_empty_lengths, dim=0, descending=True)
+        _, not_empty_idx_unsort = torch.sort(not_empty_idx_sort, dim=0)
+
+        v_sort = not_empty_seq.index_select(1, not_empty_idx_sort)
+
+        v_pack = torch.nn.utils.rnn.pack_padded_sequence(v_sort, not_empty_lengths_sort)
         v_dropout = self.dropout.forward(v_pack.data)
         v_pack_dropout = torch.nn.utils.rnn.PackedSequence(v_dropout, v_pack.batch_sizes)
 
         o_pack_dropout, _ = self.hidden.forward(v_pack_dropout)
         o, _ = torch.nn.utils.rnn.pad_packed_sequence(o_pack_dropout)
 
-        # unsorted o
-        o_unsort = o.index_select(1, idx_unsort)  # Note that here first dim is seq_len
+        # unsorted not empty o
+        out_represent = o.index_select(1, not_empty_idx_unsort)  # Note that here first dim is seq_len
+
+        # concate empty input
+        if empty_seq_idx.shape[0] != 0:  # 存在空的seq
+            out_empty = torch.zeros(seq_batch.shape[0],
+                                    seq_batch.shape[1] - not_empty_seq.shape[1],
+                                    self.out_feature_size).to(device)
+            out_represent = torch.cat([out_represent, out_empty], dim=1)
 
         # get the last time state
-        len_idx = (lengths - 1).view(-1, 1).expand(-1, o_unsort.size(2)).unsqueeze(0)
-        o_last = o_unsort.gather(0, len_idx)
+        len_idx = (lengths - 1).view(-1, 1).expand(-1, out_represent.size(2)).unsqueeze(0)
+        o_last = out_represent.gather(0, len_idx)
         o_last = o_last.squeeze(0)
 
-        return o_unsort, o_last
+        return out_represent, o_last

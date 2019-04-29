@@ -132,8 +132,10 @@ class MatchLSTM(nn.Module):
         context_vec, context_mask = self.text_field_embedder.forward(context)
 
         # encode: (seq_len, batch, hidden_size)
-        question_encode, _ = self.encoder.forward(question_vec, question_mask)
-        context_encode, _ = self.encoder.forward(context_vec, context_mask)
+        print('question_vec:', question_vec.shape)
+        question_encode, _ = self.encoder.forward(question_vec, question_mask, self.device)
+        print('context_vec:', context_vec.shape)
+        context_encode, _ = self.encoder.forward(context_vec, context_mask, self.device)
 
         # match lstm: (seq_len, batch, hidden_size)
         qt_aware_ct, qt_aware_last_hidden, match_para = self.match_rnn.forward(context_encode, context_mask,
