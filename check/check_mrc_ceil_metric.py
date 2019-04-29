@@ -45,6 +45,7 @@ def calc_one_sample_metric(sample):
 
 check_dataset = {
 
+    # ---------- baidu preprocess --------------
     'baidu_train': {
         'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/search.train.json',
         'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/zhidao.train.json'
@@ -55,6 +56,7 @@ check_dataset = {
         'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/zhidao.dev.json'
     },
 
+    # ------------ dureader_2.0_v4 -------------
     'train': {
         'search': f'../input/dureader_2.0_v3/mrc_dataset/trainset/search.train.json',
         'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/trainset/zhidao.train.json'
