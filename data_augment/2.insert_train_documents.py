@@ -8,7 +8,6 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/4/23 14:03
 """
-import sys
 import json
 from pprint import pprint
 from elasticsearch import Elasticsearch
@@ -26,12 +25,11 @@ es_client = Elasticsearch(hosts=[ES_HOST])
 
 pprint(es_client.info())
 
-# dureader_2.0 / dureader_2.0_v3
-data_version = sys.argv[1]
+data_version = 'dureader_2.0_v4'
 
 original_train_files = {
-    'search': f'../input/{data_version}/mrc_dataset/trainset/search.train.json',
-    'zhidao': f'../input/{data_version}/mrc_dataset/trainset/zhidao.train.json'
+    'search': f'../input/{data_version}/final_mrc_dataset/trainset/search.train.json',
+    'zhidao': f'../input/{data_version}/final_mrc_dataset/trainset/zhidao.train.json'
 }
 
 doc_count = es_client.count(index=dureader_index_name)['count']
@@ -70,3 +68,6 @@ for search_zhidao in original_train_files:
 # 插入剩余的 doc
 helpers.bulk(es_client, insert_actions)
 print('current doc count {}'.format(doc_count))
+
+doc_count = es_client.count(index=dureader_index_name)['count']
+print('ES now has {} documents'.format(doc_count))
