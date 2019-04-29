@@ -256,6 +256,10 @@ class Dataset(object):
 
         max_passage_num = max([len(sample['documents']) for sample in batch_data['raw_data']])
         max_passage_num = min(self.max_p_num, max_passage_num)
+
+        # 该 batch 数据中padding到的doc数
+        batch_data['passage_cnts'] = [max_passage_num] * len(indices)
+
         # 增加信息,求最大答案数
         if not is_testing:
             max_ans_num = max([len(sample['answer_labels']) for sample in batch_data['raw_data']])

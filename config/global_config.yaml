@@ -5,11 +5,11 @@ global:
   model: match_lstm    # 'match-lstm', 'match-lstm+', 'r-net', 'm-reader' or 'qanet'
 
 data:
-  data_type: zhidao
+  data_type: search
   mrc_dataset:
-    train_path: input/demo/zhidao.train.json
-    dev_path: input/demo/zhidao.dev.json
-    test_path: input/demo/zhidao.test1.json
+    train_path: input/demo/search.train.json
+    dev_path: input/demo/search.dev.json
+    test_path: input/demo/search.test1.json
 
   data_cache_dir: input/demo/cache
   train_badcase_save_path: ./logs/
@@ -27,5 +27,5 @@ train:
   learning_rate: 0.002  # only for sgd
   clip_grad_norm: 5
 
-  batch_size: 32
+  batch_size: 2
   valid_batch_size: 64

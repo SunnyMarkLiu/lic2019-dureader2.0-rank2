@@ -13,6 +13,7 @@ import argparse
 import pickle
 import torch
 import random
+import json
 import numpy as np
 from pprint import pprint
 from utils.config_util import init_logging, read_config
@@ -96,6 +97,7 @@ def train(config_path):
             logging.info(f'vocabulary size: {vocab.size()}')
             logging.info(f'trainable oov words start from 0 to {vocab.oov_word_end_idx}')
 
+    # --------- convert text to ids -----------
     logger.info('train brc dataset convert to ids')
     train_brc_dataset.convert_to_ids(vocab, use_oov2unk=True)
 
@@ -157,39 +159,26 @@ def train(config_path):
     train_batch_size = global_config['train']['batch_size']
     valid_batch_size = global_config['train']['valid_batch_size']
 
-    question = [[1, 2, 3, 4, 5, 6, 7, 8, 9],
-                [1, 2, 3, 4, 5, 6, 7, 8, 79],
-                [1, 2, 3, 4, 5, 6, 7, 8, 79],
-                [1, 2, 3, 4, 5, 6, 79, 79, 79],
-                [1, 2, 3, 4, 5, 6, 79, 79, 79],
-
-                [11, 22, 33, 44, 55, 66, 77, 88, 99],
-                [11, 22, 33, 44, 55, 66, 79, 79, 79],
-                [11, 22, 33, 44, 55, 66, 77, 88, 79],
-                [11, 22, 33, 44, 55, 66, 77, 88, 79],
-                [11, 22, 33, 44, 55, 66, 77, 88, 79]
-                ]
-    question = torch.tensor(question, dtype=torch.long)
-
-    context = [[110, 210, 310, 410, 510, 610, 720, 850, 920, 760, 820, 90],
-               [120, 220, 320, 420, 520, 630, 730, 860, 930, 750, 840, 79],
-               [130, 230, 340, 430, 530, 640, 749, 779, 749, 749, 759, 79],
-               [140, 240, 330, 440, 540, 650, 750, 880, 950, 739, 769, 79],
-               [140, 240, 330, 440, 540, 650, 750, 880, 950, 739, 769, 79],
-
-               [11, 222, 332, 443, 554, 662, 776, 887, 969, 11, 22, 33],
-               [111, 223, 333, 44, 55, 66, 77, 88, 99, 33, 33, 44],
-               [11, 220, 133, 414, 575, 656, 747, 838, 929, 79, 79, 79],
-               [79] * 12,
-               [79] * 12
-               ]
-    context = torch.tensor(context, dtype=torch.long)
     model.eval()
-    ans_range_prop, ans_range, vis_param = model.forward(question.to(device), context.to(device), passage_cnts=[5, 5])
-    print()
-    print(ans_range_prop)
-    print(ans_range)
-    # print(vis_param)
+    for batch_data in train_brc_dataset.gen_mini_batches('train', train_batch_size, vocab.get_id(vocab.pad_token)):
+        batch_question = torch.tensor(batch_data['question_token_ids'], dtype=torch.long).to(device)
+        batch_pos_questions = batch_data['pos_questions']
+        batch_pos_freq_questions = batch_data['pos_freq_questions']
+        batch_keyword_questions = batch_data['keyword_questions']
+        batch_question_length = batch_data['question_length']
+
+        batch_passage_token_ids = torch.tensor(batch_data['passage_token_ids'], dtype=torch.long).to(device)
+        batch_pos_passages = batch_data['pos_passages']
+        batch_pos_freq_passages = batch_data['pos_freq_passages']
+        batch_keyword_passages = batch_data['keyword_passages']
+        batch_passage_length = batch_data['passage_length']
+        batch_wiq_feature = batch_data['wiq_feature']
+
+        batch_passage_cnts = batch_data['passage_cnts']
+
+        ans_range_prop, ans_range, vis_param = model.forward(batch_question, batch_passage_token_ids,
+                                                             passage_cnts=batch_passage_cnts)
+        print(ans_range)
 
 
 if __name__ == '__main__':
