@@ -46,41 +46,41 @@ def calc_one_sample_metric(sample):
 check_dataset = {
 
     # ---------- baidu preprocess --------------
-    'baidu_train': {
-        'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/search.train.json',
-        'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/zhidao.train.json'
-    },
-
-    'baidu_dev': {
-        'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/search.dev.json',
-        'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/zhidao.dev.json'
-    },
+    # 'baidu_train': {
+    #     'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/search.train.json',
+    #     'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/trainset/zhidao.train.json'
+    # },
+    #
+    # 'baidu_dev': {
+    #     'search': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/search.dev.json',
+    #     'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/zhidao.dev.json'
+    # },
 
     # ------------ dureader_2.0_v4 -------------
     'train': {
-        'search': f'../input/dureader_2.0_v3/mrc_dataset/trainset/search.train.json',
-        'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/trainset/zhidao.train.json'
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/trainset/search.train.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/trainset/zhidao.train.json'
     },
 
     # 'aug_train': {
-    #     'search': f'../input/dureader_2.0_v3/mrc_dataset/aug_trainset/search.train.json',
-    #     'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/aug_trainset/zhidao.train.json'
+    #     'search': f'../input/dureader_2.0_v4/mrc_dataset/aug_trainset/search.train.json',
+    #     'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/aug_trainset/zhidao.train.json'
     # },
 
     'dev': {
-        'search': f'../input/dureader_2.0_v3/mrc_dataset/devset/search.dev.json',
-        'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/devset/zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/devset/search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/devset/zhidao.dev.json'
     },
 
     'cleaned18_dev': {
-        'search': f'../input/dureader_2.0_v3/mrc_dataset/devset/cleaned_18.search.dev.json',
-        'zhidao': f'../input/dureader_2.0_v3/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/devset/cleaned_18.search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
     }
 }
 
 # V3开始生成mrcdataset的时候就计算了 ceil rouge-l 和 bleu，直接统计即可
 for data_type in check_dataset.keys():
-    print(f"================== dureader_2.0_v3 {data_type} ceiling results ==================")
+    print(f"================== dureader_2.0_v4 {data_type} ceiling results ==================")
     for search_zhidao in check_dataset[data_type].keys():
         print(f"{search_zhidao}:")
         all_rouge_l, all_bleu4 = [], []
@@ -89,7 +89,10 @@ for data_type in check_dataset.keys():
             for line in tqdm(lines):
                 if not line.startswith('{'):
                     continue
-                sample = json.loads(line.strip())
+                try:
+                    sample = json.loads(line.strip())
+                except:
+                    continue
                 rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
                 if rouge_l > -1:
                     all_rouge_l.append(rouge_l)
