@@ -72,7 +72,7 @@ class RNNBase(torch.nn.Module):
         for t in b:
             torch.nn.init.constant_(t, 0)
 
-    def forward(self, seq_batch, mask, device='cpu'):
+    def forward(self, seq_batch, mask, device='cpu', final_state=False):
         # layer normalization
         if self.enable_layer_norm:
             seq_len, batch, input_size = seq_batch.shape
@@ -82,7 +82,7 @@ class RNNBase(torch.nn.Module):
 
         # get sorted v
         lengths = mask.eq(1).long().sum(1)
-        # 将 length 为 0 的 id 单独拿出来，非0的参与 rnn 的计算，0的后续直接拼接
+        # 将 length 为 0 的 id 单独拿出来，非0的参与 rnn 的计算，0 的后续直接拼接对应维度的 zero 向量
         empty_seq_idx = (lengths == 0).nonzero()
 
         if empty_seq_idx.shape[0] != 0:   # 存在空的seq
@@ -120,8 +120,10 @@ class RNNBase(torch.nn.Module):
             out_represent = torch.cat([out_represent, out_empty], dim=1)
 
         # get the last time state
-        len_idx = (lengths - 1).view(-1, 1).expand(-1, out_represent.size(2)).unsqueeze(0)
-        o_last = out_represent.gather(0, len_idx)
-        o_last = o_last.squeeze(0)
-
-        return out_represent, o_last
+        if final_state:
+            len_dix = (lengths - 1).view(-1, 1).expand(-1, out_represent.size(2)).unsqueeze(0)
+            state = out_represent.gather(0, len_dix)
+            state = state.squeeze(0)
+            return out_represent, state
+        else:
+            return out_represent

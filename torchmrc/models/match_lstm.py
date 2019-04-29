@@ -125,41 +125,45 @@ class MatchLSTM(nn.Module):
                                            dropout_p=self.rnn_dropout,
                                            enable_layer_norm=self.enable_layer_norm)
 
-
     def forward(self, question, context, passage_cnts):
+        """
+        Args:
+            question: 一个batch中的问题，包含相同个数的不同问题
+            context: 一个batch中包含的所有的passage，每个问题都包含相同个数的 passage
+            passage_cnts: 一个 batch 中的passage的个数，每一个batch中passage一样，不同batch可能不一样
+        """
         # get embedding: (seq_len, batch, embedding_size)
         question_vec, question_mask = self.text_field_embedder.forward(question)
         context_vec, context_mask = self.text_field_embedder.forward(context)
 
         # encode: (seq_len, batch, hidden_size)
-        print('question_vec:', question_vec.shape)
-        question_encode, _ = self.encoder.forward(question_vec, question_mask, self.device)
-        print('context_vec:', context_vec.shape)
-        context_encode, _ = self.encoder.forward(context_vec, context_mask, self.device)
+        question_encode = self.encoder.forward(question_vec, question_mask, self.device)
+        context_encode = self.encoder.forward(context_vec, context_mask, self.device)
 
         # match lstm: (seq_len, batch, hidden_size)
         qt_aware_ct, qt_aware_last_hidden, match_para = self.match_rnn.forward(context_encode, context_mask,
                                                                                question_encode, question_mask)
-        # concate passage with same question
+        # 对于同一问题包含的多个 passage 进行拼接，再参与 pointer net 的预测
         batch_sample_qt_aware_ct = []
         batch_sample_context_mask = []
 
         start = 0
         for passage_cnt in passage_cnts:
-            batch_sample_idx = torch.arange(start=start, end=start+passage_cnt).to(self.device)
+            batch_sample_idx = torch.arange(start=start, end=start + passage_cnt).to(self.device)
             start += passage_cnt
 
+            # TODO：此处的拼接可以继续优化，如将doc末尾的pad进行压缩
             # split batched passage
             sample_qt_aware_ct = qt_aware_ct.index_select(1, batch_sample_idx)
             sample_qt_aware_ct = sample_qt_aware_ct.view(-1, 1, sample_qt_aware_ct.shape[-1])
 
             sample_context_mask = context_mask.index_select(0, batch_sample_idx)
             sample_context_mask = sample_context_mask.view(1, passage_cnt * sample_context_mask.shape[-1])
-            # padding to max total passage length
 
             batch_sample_qt_aware_ct.append(sample_qt_aware_ct)
             batch_sample_context_mask.append(sample_context_mask)
 
+        # 将属于该问题的doc进行拼接
         qt_aware_ct = torch.cat(batch_sample_qt_aware_ct, 1)
         context_mask = torch.cat(batch_sample_context_mask, 0)
 
@@ -167,7 +171,7 @@ class MatchLSTM(nn.Module):
 
         # pointer net: (answer_len, batch, context_len)
         ans_range_prop = self.pointer_net.forward(qt_aware_ct, context_mask)
-        ans_range_prop = ans_range_prop.transpose(0, 1)     # (batch, answer_len, context_len), answer_len=2
+        ans_range_prop = ans_range_prop.transpose(0, 1)  # (batch, answer_len, context_len), answer_len=2
 
         # answer range
         if not self.training and self.enable_search:

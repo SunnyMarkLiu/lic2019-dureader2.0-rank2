@@ -21,6 +21,7 @@ from utils.vocab import Vocab
 import torch.optim as optim
 from torchmrc.models import MatchLSTM
 from torchmrc.modules.loss import MyNLLLoss
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,14 +60,15 @@ def train(config_path):
     logger.info('reading dureader dataset [{}]'.format(global_config['data']['data_type']))
     logging.info('create train BRCDataset')
     train_badcase_save_file = '{}/{}/train_badcase.log'.format(global_config['data']['train_badcase_save_path'],
-                                                               global_config['data']['data_type'],)
+                                                               global_config['data']['data_type'], )
     train_brc_dataset = Dataset(max_p_num=global_config['data']['max_p_num'],
                                 max_p_len=global_config['data']['max_p_len'],
                                 max_q_len=global_config['data']['max_q_len'],
                                 train_files=[global_config['data']['mrc_dataset']['train_path']],
                                 badcase_sample_log_file=train_badcase_save_file)
 
-    logging.info(f"Building {global_config['data']['data_type']} vocabulary from train {global_config['data']['data_type']} text set")
+    logging.info(
+        f"Building {global_config['data']['data_type']} vocabulary from train {global_config['data']['data_type']} text set")
 
     vocab_path = os.path.join(global_config['data']['data_cache_dir'], '{}.vocab'.format(experiment_params))
     if not os.path.exists(vocab_path):
@@ -164,8 +166,8 @@ def train(config_path):
                 [11, 22, 33, 44, 55, 66, 77, 88, 99],
                 [11, 22, 33, 44, 55, 66, 79, 79, 79],
                 [11, 22, 33, 44, 55, 66, 77, 88, 79],
-                [79] * 9,
-                [79] * 9
+                [11, 22, 33, 44, 55, 66, 77, 88, 79],
+                [11, 22, 33, 44, 55, 66, 77, 88, 79]
                 ]
     question = torch.tensor(question, dtype=torch.long)
 
@@ -183,11 +185,12 @@ def train(config_path):
                ]
     context = torch.tensor(context, dtype=torch.long)
     model.eval()
-    ans_range_prop, ans_range, vis_param= model.forward(question.to(device), context.to(device), passage_cnts=[5, 5])
+    ans_range_prop, ans_range, vis_param = model.forward(question.to(device), context.to(device), passage_cnts=[5, 5])
     print()
     print(ans_range_prop)
     print(ans_range)
     # print(vis_param)
+
 
 if __name__ == '__main__':
     init_logging()
