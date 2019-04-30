@@ -7,4 +7,4 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/4/27 15:20
 """
-from torchmrc.modules.loss.nll_loss import MyNLLLoss
+from torchmrc.modules.loss.nll_loss import MRCStartEndNLLLoss

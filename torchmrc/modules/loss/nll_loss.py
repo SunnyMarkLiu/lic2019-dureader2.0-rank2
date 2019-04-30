@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 
 
-class MyNLLLoss(torch.nn.modules.loss._Loss):
+class MRCStartEndNLLLoss(torch.nn.modules.loss._Loss):
     """
     a standard negative log likelihood loss. It is useful to train a classification
     problem with `C` classes.
@@ -22,12 +22,12 @@ class MyNLLLoss(torch.nn.modules.loss._Loss):
         - output: loss
     """
     def __init__(self):
-        super(MyNLLLoss, self).__init__()
+        super(MRCStartEndNLLLoss, self).__init__()
 
-    def forward(self, y_pred, y_true):
-        torch.nn.modules.loss._assert_no_grad(y_true)
+    def forward(self, start_probs, start_labels, end_probs, end_labels):
+        start_probs_log = torch.log(start_probs)
+        start_loss = F.nll_loss(start_probs_log, start_labels)
 
-        y_pred_log = torch.log(y_pred)
-        start_loss = F.nll_loss(y_pred_log[:, 0, :], y_true[:, 0])
-        end_loss = F.nll_loss(y_pred_log[:, 1, :], y_true[:, 1])
+        end_probs_log = torch.log(end_probs)
+        end_loss = F.nll_loss(end_probs_log, end_labels)
         return start_loss + end_loss

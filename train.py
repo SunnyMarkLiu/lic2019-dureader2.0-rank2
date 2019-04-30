@@ -13,7 +13,6 @@ import argparse
 import pickle
 import torch
 import random
-import json
 import numpy as np
 from pprint import pprint
 from utils.config_util import init_logging, read_config
@@ -21,8 +20,8 @@ from utils.dataset import Dataset
 from utils.vocab import Vocab
 import torch.optim as optim
 from torchmrc.models import MatchLSTM
-from torchmrc.modules.loss import MyNLLLoss
-
+from torchmrc.modules.loss import MRCStartEndNLLLoss
+from utils.model_util import model_training
 logger = logging.getLogger(__name__)
 
 
@@ -42,47 +41,69 @@ def train(config_path):
     logger.info('loading config file...')
     global_config = read_config(config_path)
     pprint(global_config)
-    print()
+
+    # -------------------------- parameters -----------------------
+    # global
+    random_seed = global_config['global']['random_seed']
+    gpu = global_config['global']['gpu']
+    
+    # data
+    data_type = global_config['data']['data_type']
+    max_p_num = global_config['data']['max_p_num']
+    max_p_len = global_config['data']['max_p_len']
+    max_q_len = global_config['data']['max_q_len']
+    min_word_cnt = global_config['data']['min_word_cnt']
+
+    train_path = global_config['data']['mrc_dataset']['train_path']
+    
+    # train
+    learning_rate = global_config['train']['learning_rate']
+    optimizer_choose = global_config['train']['optimizer']
+    train_batch_size = global_config['train']['batch_size']
+    valid_batch_size = global_config['train']['valid_batch_size']
+    clip_grad_norm = global_config['train']['clip_grad_norm']
+
+    # --------------------------------------------------------------
 
     experiment_params = '{}_max_p_num{}_max_p_len{}_max_q_len{}_min_word_cnt{}_preembedfile_{}'.format(
-        global_config['data']['data_type'],
-        global_config['data']['max_p_num'],
-        global_config['data']['max_p_len'],
-        global_config['data']['max_q_len'],
-        global_config['data']['min_word_cnt'],
+        data_type,
+        max_p_num,
+        max_p_len,
+        max_q_len,
+        min_word_cnt,
         global_config['data']['embeddings_file'].split('/')[-1]
     )
 
     # seed everything for torch
-    seed_torch(global_config['global']['random_seed'])
-    device = torch.device("cuda:{}".format(global_config['global']['gpu']) if torch.cuda.is_available() else "cpu")
+    seed_torch(random_seed)
+    device = torch.device("cuda:{}".format(gpu) if torch.cuda.is_available() else "cpu")
 
     # -------------------- Data preparing -------------------
-    logger.info('reading dureader dataset [{}]'.format(global_config['data']['data_type']))
+    logger.info('reading dureader dataset [{}]'.format(data_type))
     logging.info('create train BRCDataset')
     train_badcase_save_file = '{}/{}/train_badcase.log'.format(global_config['data']['train_badcase_save_path'],
-                                                               global_config['data']['data_type'], )
-    train_brc_dataset = Dataset(max_p_num=global_config['data']['max_p_num'],
-                                max_p_len=global_config['data']['max_p_len'],
-                                max_q_len=global_config['data']['max_q_len'],
-                                train_files=[global_config['data']['mrc_dataset']['train_path']],
+                                                               data_type, )
+    train_brc_dataset = Dataset(max_p_num=max_p_num,
+                                max_p_len=max_p_len,
+                                max_q_len=max_q_len,
+                                is_train=True,
+                                data_files=[train_path],
                                 badcase_sample_log_file=train_badcase_save_file)
 
-    logging.info(
-        f"Building {global_config['data']['data_type']} vocabulary from train {global_config['data']['data_type']} text set")
+    logging.info(f"Building {data_type} vocabulary from train {data_type} text set")
 
     vocab_path = os.path.join(global_config['data']['data_cache_dir'], '{}.vocab'.format(experiment_params))
     if not os.path.exists(vocab_path):
         logging.info('Building vocabulary from train text set')
         vocab = Vocab()
-        for word in train_brc_dataset.word_iter('train'):  # 根据 train 构建词典
+        for word in train_brc_dataset.word_iter():  # 根据 train 构建词典
             vocab.add(word)
 
         unfiltered_vocab_size = vocab.size()
-        vocab.filter_tokens_by_cnt(min_cnt=global_config['data']['min_word_cnt'])
+        vocab.filter_tokens_by_cnt(min_cnt=min_word_cnt)
         filtered_num = unfiltered_vocab_size - vocab.size()
         logger.info(f'Original vocab size: {unfiltered_vocab_size}')
-        logger.info(f"filter word_cnt<{global_config['data']['min_word_cnt']}: {filtered_num}, left: {vocab.size()}")
+        logger.info(f"filter word_cnt<{min_word_cnt}: {filtered_num}, left: {vocab.size()}")
 
         logger.info('load pretrained embeddings and build embedding matrix')
         vocab.build_embedding_matrix(global_config['data']['embeddings_file'])
@@ -99,8 +120,10 @@ def train(config_path):
 
     # --------- convert text to ids -----------
     logger.info('train brc dataset convert to ids')
+    train_brc_dataset.update_pad_id(vocab.get_id(vocab.pad_token))  # set pad token id
     train_brc_dataset.convert_to_ids(vocab, use_oov2unk=True)
 
+    # --------------- model prepare ---------------
     model_choose = global_config['global']['model']
     logger.info(f"create {model_choose} model")
 
@@ -109,9 +132,9 @@ def train(config_path):
 
     # ----------------- build neural network model, loss func, optimizer, scheduler ------------------
     if model_choose == 'match_lstm':
-        model = MatchLSTM(max_p_num=global_config['data']['max_p_num'],
-                          max_p_len=global_config['data']['max_p_len'],
-                          max_q_len=global_config['data']['max_q_len'],
+        model = MatchLSTM(max_p_num=max_p_num,
+                          max_p_len=max_p_len,
+                          max_q_len=max_q_len,
                           vocab_size=vocab.size(),
                           embed_dim=vocab.embed_dim,
                           rnn_mode='LSTM',
@@ -134,52 +157,29 @@ def train(config_path):
         raise ValueError('model "%s" in config file not recoginized' % model_choose)
 
     model = model.to(device)
-    print('\n', model, '\n')
+    logger.info(f'{model_choose} model structure:\n' + model.__str__() + '\n')
 
     # optimizer
-    optimizer_choose = global_config['train']['optimizer']
-    optimizer_lr = global_config['train']['learning_rate']
     optimizer_param = filter(lambda p: p.requires_grad, model.parameters())
 
     if optimizer_choose == 'adamax':
-        optimizer = optim.Adamax(optimizer_param)
+        optimizer = optim.Adamax(optimizer_param, lr=learning_rate)
     elif optimizer_choose == 'adadelta':
-        optimizer = optim.Adadelta(optimizer_param)
+        optimizer = optim.Adadelta(optimizer_param, lr=learning_rate)
     elif optimizer_choose == 'adam':
-        optimizer = optim.Adam(optimizer_param)
+        optimizer = optim.Adam(optimizer_param, lr=learning_rate)
     elif optimizer_choose == 'sgd':
-        optimizer = optim.SGD(optimizer_param, lr=optimizer_lr)
+        optimizer = optim.SGD(optimizer_param, lr=learning_rate)
     else:
         raise ValueError('optimizer "%s" in config file not recoginized' % optimizer_choose)
 
     # loss function
-    criterion = MyNLLLoss()
-    # training arguments
+    criterion = MRCStartEndNLLLoss()
+
+    # ---------------------- training and validate ----------------------
     logger.info('start training...')
-    train_batch_size = global_config['train']['batch_size']
-    valid_batch_size = global_config['train']['valid_batch_size']
-
-    model.eval()
-    for batch_data in train_brc_dataset.gen_mini_batches('train', train_batch_size, vocab.get_id(vocab.pad_token)):
-        batch_question = torch.tensor(batch_data['question_token_ids'], dtype=torch.long).to(device)
-        batch_pos_questions = batch_data['pos_questions']
-        batch_pos_freq_questions = batch_data['pos_freq_questions']
-        batch_keyword_questions = batch_data['keyword_questions']
-        batch_question_length = batch_data['question_length']
-
-        batch_passage_token_ids = torch.tensor(batch_data['passage_token_ids'], dtype=torch.long).to(device)
-        batch_pos_passages = batch_data['pos_passages']
-        batch_pos_freq_passages = batch_data['pos_freq_passages']
-        batch_keyword_passages = batch_data['keyword_passages']
-        batch_passage_length = batch_data['passage_length']
-        batch_wiq_feature = batch_data['wiq_feature']
-
-        batch_passage_cnts = batch_data['passage_cnts']
-
-        ans_range_prop, ans_range, vis_param = model.forward(batch_question, batch_passage_token_ids,
-                                                             passage_cnts=batch_passage_cnts)
-        print(ans_range)
-
+    for i in range(10):
+        model_training(model, optimizer, criterion, train_brc_dataset, train_batch_size, clip_grad_norm, device)
 
 if __name__ == '__main__':
     init_logging()
