@@ -1,6 +1,6 @@
 global:
   random_seed: 42
-  gpu: 0                # GPU id for training and testing
+  gpu: 2                # GPU id for training and testing
   model: match_lstm    # 'match-lstm', 'match-lstm+', 'r-net', 'm-reader' or 'qanet'
 
 data:
