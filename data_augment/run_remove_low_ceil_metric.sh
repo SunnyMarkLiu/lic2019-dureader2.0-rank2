@@ -38,13 +38,3 @@ nohup cat ${source_dir}split_zhidao_10 |python 5.remove_low_ceil_metric.py ${min
 nohup cat ${source_dir}split_zhidao_11 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_11 2>&1 &
 nohup cat ${source_dir}split_zhidao_12 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_12 2>&1 &
 nohup cat ${source_dir}split_zhidao_13 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_13 2>&1 &
-
-#------------------------ remove dev low ceil rouge-l samples ------------------------
-source_dir="../input/${data_version}/mrc_dataset/devset/"
-target_dir="../input/${data_version}/final_mrc_dataset/devset/"
-
-nohup cat ${source_dir}search.dev.json |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}search.dev.json 2>&1 &
-nohup cat ${source_dir}zhidao.dev.json |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}zhidao.dev.json 2>&1 &
-
-nohup cat ${source_dir}cleaned_18.search.dev.json |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}cleaned_18.search.dev.json 2>&1 &
-nohup cat ${source_dir}cleaned_18.zhidao.dev.json |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}cleaned_18.zhidao.dev.json 2>&1 &

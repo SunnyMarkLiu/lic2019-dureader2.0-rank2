@@ -257,9 +257,7 @@ def augment_new_sample(sample, search_zhidao):
         return augment_sample
 
 if __name__ == '__main__':
-    # dureader_2.0 / dureader_2.0_v3
-    data_version = sys.argv[1]
-    source = sys.argv[2]    # search/zhidao
+    source = sys.argv[1]    # search/zhidao
 
     for line in sys.stdin:
         if not line.startswith('{'):
