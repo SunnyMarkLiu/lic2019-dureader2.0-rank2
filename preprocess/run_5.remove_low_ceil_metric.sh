@@ -37,7 +37,6 @@ nohup cat ${source_dir}split_zhidao_09 |python 5.remove_low_ceil_metric.py ${min
 nohup cat ${source_dir}split_zhidao_10 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_10 2>&1 &
 nohup cat ${source_dir}split_zhidao_11 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_11 2>&1 &
 nohup cat ${source_dir}split_zhidao_12 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_12 2>&1 &
-nohup cat ${source_dir}split_zhidao_13 |python 5.remove_low_ceil_metric.py ${min_ceil_rouge} > ${target_dir}split_zhidao_13 2>&1 &
 
 #------------------------ remove dev low ceil rouge-l samples ------------------------
 source_dir="../input/${data_version}/mrc_dataset/devset/"
