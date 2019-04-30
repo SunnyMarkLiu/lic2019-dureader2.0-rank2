@@ -77,7 +77,7 @@ def model_training(model, optimizer, criterion, dataset, batch_size, max_gradien
         train_loss += loss.item()
         processed += len(batch_start_ids)
 
-        description = "train log-loss: {:.5f}".format(train_loss / (batch_index + 1))
+        description = "train loss: {:.5f}".format(train_loss / (batch_index + 1))
         tqdm_batch_iterator.set_description(description)
         batch_index += 1
 

@@ -34,4 +34,3 @@ nohup cat ${source_dir}split_zhidao_09 |python ../preprocess/4.gen_mrc_dataset.p
 nohup cat ${source_dir}split_zhidao_10 |python ../preprocess/4.gen_mrc_dataset.py > ${target_dir}split_zhidao_10 2>&1 &
 nohup cat ${source_dir}split_zhidao_11 |python ../preprocess/4.gen_mrc_dataset.py > ${target_dir}split_zhidao_11 2>&1 &
 nohup cat ${source_dir}split_zhidao_12 |python ../preprocess/4.gen_mrc_dataset.py > ${target_dir}split_zhidao_12 2>&1 &
-nohup cat ${source_dir}split_zhidao_13 |python ../preprocess/4.gen_mrc_dataset.py > ${target_dir}split_zhidao_13 2>&1 &
