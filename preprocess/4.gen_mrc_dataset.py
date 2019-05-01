@@ -110,7 +110,6 @@ def gen_trainable_dataset(sample):
         if answer == '' or len(answer) == 0: continue
 
         answer_tokens = set([token for token in answer])
-        ques_answer = [trainable_sample['segmented_question'] + answer]
 
         best_match_score = 0
         best_match_doc_id = -1
@@ -163,20 +162,8 @@ def gen_trainable_dataset(sample):
                 break
             # -------------------- 直接定位答案 end ----------------------------
 
-            # 如果第一个段落中问题长度内不包含问题（test/dev）、问题+答案（train）的关键词，则从标题检索，from_start=0
-            # 如果第一个段落中问题长度内包含，则标题不检索 from_start = doc['title_len'] + 1
-            check_para1_contex_start = doc['title_len'] + 1
-            check_para1_contex_end = doc['title_len'] + 1 + len(ques_answer[0])
-
-            para1_pre_context = doc['segmented_passage'][check_para1_contex_start: check_para1_contex_end]
-            para1_pre_context_words = set([token for token in para1_pre_context])
-
-            if len(set(ques_answer[0]).intersection(para1_pre_context_words)) > 0:
-                from_start = doc['title_len'] + 1
-            else:
-                from_start = 0
-
-            for start_idx in range(from_start, len(doc['segmented_passage'])):
+            # -------------------- 根据 F1 搜索答案 ----------------------------
+            for start_idx in range(0, len(doc['segmented_passage'])):
                 # 开始的词不在答案中，或者，开始的词为标点符号或splitter，直接过滤
                 if doc['segmented_passage'][start_idx] not in answer_tokens or \
                         (doc['segmented_passage'][start_idx] in punc_filtered and doc['segmented_passage'][start_idx] not in {'<', '(', '《', '"'}):
@@ -191,7 +178,7 @@ def gen_trainable_dataset(sample):
 
                     span_tokens = doc['segmented_passage'][start_idx: end_idx + 1]
                     # 构造 MRC 数据集的时候只采用 f1，bleu计算太慢
-                    match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, ques_answer)
+                    match_score = metric_max_over_ground_truths(f1_score, None, span_tokens, [answer])
 
                     if match_score > best_match_score:
                         best_match_score = match_score
