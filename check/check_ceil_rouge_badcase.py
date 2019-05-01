@@ -16,6 +16,8 @@ import os
 import json
 from tqdm import tqdm
 
+# python check_ceil_rouge_badcase.py dureader_2.0_v4 2 ../input/dureader_2.0_v4/final_mrc_dataset/trainset/search.train.json
+# python check_ceil_rouge_badcase.py dureader_2.0_v4 2 ../input/dureader_2.0_v4/final_mrc_dataset/trainset/zhidao.train.json
 if __name__ == '__main__':
     # dureader_2.0 / dureader_2.0_v4
     data_version = sys.argv[1]
