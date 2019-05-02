@@ -70,7 +70,7 @@ def parse_args():
                                 help='whether init the initial tokens random, if False, init them 0')
     extra_settings.add_argument('--use_oov2unk', type=str2bool, default=True,
                                 help='if True, all oov words project to unk')
-    extra_settings.add_argument('--vocab_dir', default='data_search_0430/vocab',
+    extra_settings.add_argument('--vocab_dir', default='cache/vocab',
                                 help='the dir to save/load vocabulary')
     extra_settings.add_argument('--vocab_file', default='v4_baidu_cnt2_vocab.data',
                                 help='the file to save/load vocabulary')
@@ -119,41 +119,40 @@ def parse_args():
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
+    path_settings.add_argument('--train_files', nargs='+',
+                               default=['../input/demo/search.train.json'],
+                               help='list of files that contain the preprocessed train data')
+    path_settings.add_argument('--dev_files', nargs='+',
+                               default=['../input/demo/search.dev.json'],
+                               help='list of files that contain the preprocessed dev data')
+    path_settings.add_argument('--test_files', nargs='+',
+                               default=['../input/demo/search.test1.json'],
+                               help='list of files that contain the preprocessed test data')
+
     # path_settings.add_argument('--train_files', nargs='+',
     #                            default=[
-    #                                'data/demo_v4/v4.sample.train.json'],
+    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/trainset/search.train.json'],
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
     #                            default=[
-    #                                'data/demo_v4/v4.sample.dev.json'],
+    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/devset/search.dev.json',
+    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/devset/cleaned_18.search.dev.json'
+    #                                ],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
     #                            default=[
-    #                                'data/demo_v4/v4.sample.test.json'],
+    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/testset/search.test1.json'],
     #                            help='list of files that contain the preprocessed test data')
-    path_settings.add_argument('--train_files', nargs='+',
-                               default=[
-                                   '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/trainset/search.train.json'],
-                               help='list of files that contain the preprocessed train data')
-    path_settings.add_argument('--dev_files', nargs='+',
-                               default=[
-                                   '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/devset/search.dev.json',
-                                   '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/devset/cleaned_18.search.dev.json'
-                                   ],
-                               help='list of files that contain the preprocessed dev data')
-    path_settings.add_argument('--test_files', nargs='+',
-                               default=[
-                                   '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/testset/search.test1.json'],
-                               help='list of files that contain the preprocessed test data')
-    path_settings.add_argument('--model_dir', default='data_search_0430/models/',
+
+    path_settings.add_argument('--model_dir', default='cache/models/',
                                help='the dir to store models')
-    path_settings.add_argument('--result_dir', default='data_search_0430/results/',
+    path_settings.add_argument('--result_dir', default='cache/results/',
                                help='the dir to output the results')
-    path_settings.add_argument('--summary_dir', default='data_search_0430/summary/',
+    path_settings.add_argument('--summary_dir', default='cache/summary/',
                                help='the dir to write tensorboard summary')
     path_settings.add_argument('--log_path',
                                help='path of the log file. If not set, logs are printed to console')
-    path_settings.add_argument('--pretrained_word_path', default='../pretrain_word_embedding/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5',
+    path_settings.add_argument('--pretrained_word_path', default='../../../pretrained_embeddings/chinese/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5',
                                help='pretrained word path. If not set, word embeddings will be randomly init')
     return parser.parse_args()
 
