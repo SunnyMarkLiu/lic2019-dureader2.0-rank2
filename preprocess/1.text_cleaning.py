@@ -20,7 +20,7 @@ from utils.jieba_util import WordSegmentPOSKeywordExtractor
 import warnings
 warnings.filterwarnings("ignore")
 
-data_version = 'dureader_2.0_v3'
+data_version = 'dureader_2.0_v4'
 
 jieba.load_userdict(f'../input/{data_version}/all_url_dict.txt')      # 抽取的entity和所有的 url 构成的词
 url_map_df = pd.read_csv(f'../input/{data_version}/url_mapping.csv', encoding='utf-8')

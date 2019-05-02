@@ -58,23 +58,23 @@ check_dataset = {
 
     # ------------ dureader_2.0_v4 -------------
     'train': {
-        'search': f'../input/dureader_2.0_v4/final_mrc_dataset/trainset/search.train.json',
-        'zhidao': f'../input/dureader_2.0_v4/final_mrc_dataset/trainset/zhidao.train.json'
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/search.train.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/zhidao.train.json'
     },
 
-    # 'aug_train': {
-    #     'search': f'../input/dureader_2.0_v4/final_mrc_dataset/aug_trainset/search.train.json',
-    #     'zhidao': f'../input/dureader_2.0_v4/final_mrc_dataset/aug_trainset/zhidao.train.json'
-    # },
+    'aug_train': {
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/aug_search.train.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/aug_zhidao.train.json'
+    },
 
     'dev': {
-        'search': f'../input/dureader_2.0_v4/final_mrc_dataset/devset/search.dev.json',
-        'zhidao': f'../input/dureader_2.0_v4/final_mrc_dataset/devset/zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/devset/search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/devset/zhidao.dev.json'
     },
 
     'cleaned18_dev': {
-        'search': f'../input/dureader_2.0_v4/final_mrc_dataset/devset/cleaned_18.search.dev.json',
-        'zhidao': f'../input/dureader_2.0_v4/final_mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v4/mrc_dataset/devset/cleaned_18.search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
     }
 }
 

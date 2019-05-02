@@ -12,6 +12,7 @@ import json
 
 if __name__ == '__main__':
     min_ceil_rouge = int(sys.argv[1])
+    min_ceil_bleu4 = int(sys.argv[2])
 
     for line in sys.stdin:
         if not line.startswith('{'):
@@ -19,5 +20,6 @@ if __name__ == '__main__':
 
         sample = json.loads(line.strip())
         rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
-        if rouge_l > min_ceil_rouge:
+
+        if rouge_l > min_ceil_rouge or bleu4 > min_ceil_bleu4:
             print(json.dumps(sample, ensure_ascii=False))

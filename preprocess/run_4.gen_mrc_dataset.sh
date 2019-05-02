@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-data_version="dureader_2.0_v4"
+data_version="dureader_2.0_v5"
 
 #------------------------ generate train mrc dataset ------------------------
 source_dir="../input/${data_version}/extracted/trainset/"
