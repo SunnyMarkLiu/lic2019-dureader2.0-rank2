@@ -11,7 +11,17 @@ import logging
 import argparse
 import pickle
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"  # INFO/warning/ERROR/FATAL
+
+import random
+import numpy as np
+import tensorflow as tf
+
+
+def seed_everything(random_seed=42):
+    random.seed(random_seed)
+    os.environ['PYTHONHASHSEED'] = str(random_seed)
+    np.random.seed(random_seed)
+    tf.set_random_seed(random_seed)
 
 def parse_args():
     """
@@ -309,8 +319,12 @@ def run():
         logger.info('   {}:\t{}'.format(k, v))
     logger.info('*' * 100)
 
+    # disable TF debug logs
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # INFO/warning/ERROR/FATAL
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+
+    seed_everything(args.random_seed)
 
     if args.prepare:
         prepare(args)

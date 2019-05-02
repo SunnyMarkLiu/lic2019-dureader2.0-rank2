@@ -39,10 +39,6 @@ class MultiAnsModel(object):
         # 额外的设置
         self.config = args
 
-        # 随机种子
-        tf.set_random_seed(args.random_seed)
-        np.random.seed(args.random_seed)
-
         # length limit
         self.max_p_num = args.max_p_num
         self.max_p_len = args.max_p_len
