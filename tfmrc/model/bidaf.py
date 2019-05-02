@@ -383,7 +383,7 @@ class MultiAnsModel(object):
                 self.logger.info('Evaluating the model after epoch {}'.format(epoch))
                 if data.dev_set is not None:
                     eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
-                    total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('dev') % batch_size != 0)
+                    total_batch_count = data.get_data_length('dev') // batch_size + int(data.get_data_length('dev') % batch_size != 0)
                     eval_loss, bleu_rouge = self.evaluate(total_batch_count, eval_batches)
                     self.logger.info('Dev eval loss {}'.format(eval_loss))
                     self.logger.info('Dev eval result: {}'.format(bleu_rouge))
