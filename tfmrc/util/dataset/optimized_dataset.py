@@ -394,3 +394,13 @@ class Dataset(object):
         # batch_data['wiq_feature'] = [(wiq + [-1] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
 
         return batch_data, pad_p_len, pad_q_len
+
+    def get_data_length(self, set_name):
+        if set_name == 'train':
+            return len(self.train_set)
+        elif set_name == 'dev':
+            return len(self.dev_set)
+        elif set_name == 'test':
+            return len(self.test_set)
+        else:
+            raise NotImplementedError('No data set named as {}'.format(set_name))

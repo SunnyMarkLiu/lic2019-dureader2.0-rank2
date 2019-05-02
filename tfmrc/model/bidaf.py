@@ -14,8 +14,8 @@ from layers.basic_rnn import rnn
 from layers.match_layer import MatchLSTMLayer
 from layers.match_layer import AttentionFlowMatchLayer
 from layers.pointer_net import PointerNetDecoder
-
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
+from tqdm import tqdm
 
 
 class MultiAnsModel(object):
@@ -330,7 +330,7 @@ class MultiAnsModel(object):
 
         return feed_dict
 
-    def _train_epoch(self, train_batches, dropout_keep_prob):
+    def _train_epoch(self, total_batch_count, train_batches, dropout_keep_prob):
         """
         Trains the model for a single epoch.
         Args:
@@ -339,7 +339,10 @@ class MultiAnsModel(object):
         """
         total_num, total_loss = 0, 0
         log_every_n_batch, n_batch_loss = 50, 0
-        for bitx, batch in enumerate(train_batches, 1):
+
+        tqdm_batch_iterator = tqdm(train_batches, total=total_batch_count)
+
+        for bitx, batch in enumerate(tqdm_batch_iterator):
             feed_dict = {self.p: batch['passage_token_ids'],
                          self.q: batch['question_token_ids'],
                          self.p_length: batch['passage_length'],
@@ -352,10 +355,10 @@ class MultiAnsModel(object):
             total_loss += loss * len(batch['raw_data'])
             total_num += len(batch['raw_data'])
             n_batch_loss += loss
-            if log_every_n_batch > 0 and bitx % log_every_n_batch == 0:
-                self.logger.info('Average loss from batch {} to {} is {}'.format(
-                    bitx - log_every_n_batch + 1, bitx, n_batch_loss / log_every_n_batch))
-                n_batch_loss = 0
+
+            description = "train loss: {:.5f}".format(n_batch_loss / log_every_n_batch)
+            tqdm_batch_iterator.set_description(description)
+
         return 1.0 * total_loss / total_num
 
     def train(self, data, epochs, batch_size, save_dir, save_prefix,
@@ -375,15 +378,17 @@ class MultiAnsModel(object):
         max_rouge_l = 0
         for epoch in range(1, epochs + 1):
             self.logger.info('Training the model for epoch {}'.format(epoch))
+            total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('train') % batch_size != 0)
             train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True)
-            train_loss = self._train_epoch(train_batches, dropout_keep_prob)
+            train_loss = self._train_epoch(total_batch_count, train_batches, dropout_keep_prob)
             self.logger.info('Average train loss for epoch {} is {}'.format(epoch, train_loss))
 
             if evaluate:
                 self.logger.info('Evaluating the model after epoch {}'.format(epoch))
                 if data.dev_set is not None:
                     eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
-                    eval_loss, bleu_rouge = self.evaluate(eval_batches)
+                    total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('dev') % batch_size != 0)
+                    eval_loss, bleu_rouge = self.evaluate(total_batch_count, eval_batches)
                     self.logger.info('Dev eval loss {}'.format(eval_loss))
                     self.logger.info('Dev eval result: {}'.format(bleu_rouge))
 
@@ -396,10 +401,11 @@ class MultiAnsModel(object):
             else:
                 self.save(save_dir, save_prefix + '_' + str(epoch))
 
-    def evaluate(self, eval_batches, result_dir=None, result_prefix=None, save_full_info=False):
+    def evaluate(self, total_batch_count, eval_batches, result_dir=None, result_prefix=None, save_full_info=False):
         """
         Evaluates the model performance on eval_batches and results are saved if specified
         Args:
+            total_batch_count: total batch counts
             eval_batches: iterable batch data
             result_dir: directory to save predicted answers, answers will not be saved if None
             result_prefix: prefix of the file for saving predicted answers,
@@ -424,8 +430,9 @@ class MultiAnsModel(object):
             pp_scores = None
         self.logger.info('we use {} model: {} pp_scores'.format(score_mode, pp_scores))
 
-        for b_itx, batch in enumerate(eval_batches):
-            self.logger.info(b_itx)
+        tqdm_batch_iterator = tqdm(eval_batches, total=total_batch_count)
+
+        for b_itx, batch in enumerate(tqdm_batch_iterator):
             feed_dict = {self.p: batch['passage_token_ids'],
                          self.q: batch['question_token_ids'],
                          self.p_length: batch['passage_length'],
