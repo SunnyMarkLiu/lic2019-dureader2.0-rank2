@@ -11,7 +11,6 @@ import logging
 import argparse
 import pickle
 import os
-
 import random
 import numpy as np
 import tensorflow as tf
@@ -23,10 +22,12 @@ def seed_everything(random_seed=42):
     np.random.seed(random_seed)
     tf.set_random_seed(random_seed)
 
+
 def parse_args():
     """
     Parses command line arguments.
     """
+
     def str2bool(v):
         if v.lower() in ('yes', 'true', 't', 'y', '1'):
             return True
@@ -89,7 +90,8 @@ def parse_args():
     extra_settings.add_argument('--vocab_min_cnt', type=int, default=2,
                                 help='filter the vocab where their cnt < vocab_min_cnt')
     # 文档rank分数选择
-    extra_settings.add_argument('--use_para_prior_scores', choices=["None", "baidu", "zhidao", "search", "all", "best"], default='None',
+    extra_settings.add_argument('--use_para_prior_scores', choices=["None", "baidu", "zhidao", "search", "all", "best"],
+                                default='None',
                                 help='choose one of ["None", "baidu", "zhidao", "search", "all", "best"]')
     # bad case记录路径
     extra_settings.add_argument('--badcase_sample_log_file', type=str, default='badcase_sample_log_file.json',
@@ -162,7 +164,8 @@ def parse_args():
                                help='the dir to write tensorboard summary')
     path_settings.add_argument('--log_path',
                                help='path of the log file. If not set, logs are printed to console')
-    path_settings.add_argument('--pretrained_word_path', default='../../../pretrained_embeddings/chinese/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5',
+    path_settings.add_argument('--pretrained_word_path',
+                               default='../../../pretrained_embeddings/chinese/sgns.target.word-word.dynwin5.thr10.neg5.dim300.iter5',
                                help='pretrained word path. If not set, word embeddings will be randomly init')
     return parser.parse_args()
 
@@ -191,8 +194,7 @@ def prepare(args):
         unfiltered_vocab_size = vocab.size()
         vocab.filter_tokens_by_cnt(min_cnt=args.vocab_min_cnt)
         filtered_num = unfiltered_vocab_size - vocab.size()
-        logger.info('After filter {} tokens, the final vocab size is {}'.format(
-            filtered_num, vocab.size()))
+        logger.info('After filter {} tokens, the final vocab size is {}'.format(filtered_num, vocab.size()))
 
         logger.info('Assigning embeddings...')
         if args.pretrained_word_path is not None:
@@ -218,8 +220,7 @@ def train(args):
     logger.info('check the directories...')
     for dir_path in [args.model_dir, args.result_dir, args.summary_dir]:
         if not os.path.exists(dir_path):
-            logger.warning(
-                "don't exist {} directory, so we create it!".format(dir_path))
+            logger.warning("don't exist {} directory, so we create it!".format(dir_path))
             os.makedirs(dir_path)
 
     logger.info('Load data_set and vocab...')
@@ -259,13 +260,17 @@ def evaluate(args):
     rc_model.restore(model_dir=args.model_dir, model_prefix=args.algo)
     logger.info('Evaluating the model on dev set...')
     dev_batches = brc_data.gen_mini_batches('dev', args.batch_size,
-                                            pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
-    dev_loss, dev_bleu_rouge = rc_model.evaluate(
-        dev_batches, result_dir=args.result_dir, result_prefix='dev.predicted')
+                                            pad_id=vocab.get_id(vocab.pad_token),
+                                            shuffle=False)
+    total_batch_count = brc_data.get_data_length('dev') // args.batch_size + \
+                        int(brc_data.get_data_length('dev') % args.batch_size != 0)
+    dev_loss, dev_bleu_rouge = rc_model.evaluate(total_batch_count,
+                                                 dev_batches,
+                                                 result_dir=args.result_dir,
+                                                 result_prefix='dev.predicted')
     logger.info('Loss on dev set: {}'.format(dev_loss))
     logger.info('Result on dev set: {}'.format(dev_bleu_rouge))
-    logger.info('Predicted answers are saved to {}'.format(
-        os.path.join(args.result_dir)))
+    logger.info('Predicted answers are saved to {}'.format(os.path.join(args.result_dir)))
 
 
 def predict(args):
@@ -288,8 +293,12 @@ def predict(args):
     logger.info('Predicting answers for test set...')
     test_batches = brc_data.gen_mini_batches('test', args.batch_size,
                                              pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
-    rc_model.evaluate(test_batches,
-                      result_dir=args.result_dir, result_prefix='test.predicted')
+    total_batch_count = brc_data.get_data_length('dev') // args.batch_size + \
+                        int(brc_data.get_data_length('test') % args.batch_size != 0)
+    rc_model.evaluate(total_batch_count,
+                      test_batches,
+                      result_dir=args.result_dir,
+                      result_prefix='test.predicted')
 
 
 def run():
