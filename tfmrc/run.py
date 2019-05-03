@@ -174,7 +174,7 @@ def prepare(args):
     """
     checks data, creates the directories, prepare the vocabulary and embeddings
     """
-    logger = logging.getLogger()
+    logger = logging.getLogger('brc')
     logger.info('Checking the data files...')
     for data_path in args.train_files + args.dev_files + args.test_files:
         assert os.path.exists(data_path), '{} file does not exist.'.format(data_path)
@@ -307,7 +307,7 @@ def run():
     """
     args = parse_args()
 
-    logger = logging.getLogger()
+    logger = logging.getLogger('brc')
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')

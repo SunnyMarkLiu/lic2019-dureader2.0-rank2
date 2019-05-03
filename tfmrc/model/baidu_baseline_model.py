@@ -11,8 +11,8 @@ import logging
 import json
 import numpy as np
 import tensorflow as tf
-from baidu_utils import compute_bleu_rouge
-from baidu_utils import normalize
+from util.metric import compute_bleu_rouge
+from util.metric import normalize
 from layers.basic_rnn import rnn
 from layers.match_layer import MatchLSTMLayer
 from layers.match_layer import AttentionFlowMatchLayer

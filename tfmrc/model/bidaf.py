@@ -1,5 +1,9 @@
 """
-阅读理解模型
+This module implements the reading comprehension models based on:
+
+1. the BiDAF algorithm described in https://arxiv.org/abs/1611.01603
+2. the Match-LSTM algorithm described in https://openreview.net/pdf?id=B1-q5Pqxl
+3. A Multi-answer Multi-task Framework for Real-world Machine Reading Comprehension
 """
 
 import os
@@ -50,7 +54,7 @@ class MultiAnsModel(object):
 
         # session info
         sess_config = tf.ConfigProto()
-        sess_config.gpu_options.allow_growth = True
+        sess_config.gpu_options.allow_growth = False
         self.sess = tf.Session(config=sess_config)
 
         self._build_graph()
@@ -334,7 +338,7 @@ class MultiAnsModel(object):
             dropout_keep_prob: float value indicating dropout keep probability
         """
         total_num, total_loss = 0, 0
-        log_every_n_batch, n_batch_loss = 50, 0
+        n_batch_loss = 50, 0
 
         tqdm_batch_iterator = tqdm(train_batches, total=total_batch_count)
 
@@ -352,7 +356,7 @@ class MultiAnsModel(object):
             total_num += len(batch['raw_data'])
             n_batch_loss += loss
 
-            description = "train loss: {:.5f}".format(n_batch_loss / log_every_n_batch)
+            description = "train loss: {:.5f}".format(loss)
             tqdm_batch_iterator.set_description(description)
 
         return 1.0 * total_loss / total_num
