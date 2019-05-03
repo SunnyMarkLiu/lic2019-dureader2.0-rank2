@@ -54,7 +54,7 @@ class MultiAnsModel(object):
 
         # session info
         sess_config = tf.ConfigProto()
-        sess_config.gpu_options.allow_growth = False
+        sess_config.gpu_options.allow_growth = True
         self.sess = tf.Session(config=sess_config)
 
         self._build_graph()
