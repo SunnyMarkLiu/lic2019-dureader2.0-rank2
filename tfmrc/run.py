@@ -85,7 +85,7 @@ def parse_args():
                                 help='whether init the initial tokens random, if False, init them 0')
     extra_settings.add_argument('--use_oov2unk', type=str2bool, default=True,
                                 help='if True, all oov words project to unk')
-    extra_settings.add_argument('--vocab_dir', default='cache/vocab',
+    extra_settings.add_argument('--vocab_dir', default='demo_cache/vocab',
                                 help='the dir to save/load vocabulary')
     extra_settings.add_argument('--vocab_file', default='v5_baidu_cnt2_vocab.data',
                                 help='the file to save/load vocabulary')
@@ -137,36 +137,36 @@ def parse_args():
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
-    # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=['../input/demo/search.train.json'],
-    #                            help='list of files that contain the preprocessed train data')
-    # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=['../input/demo/search.dev.json'],
-    #                            help='list of files that contain the preprocessed dev data')
-    # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=['../input/demo/search.test1.json'],
-    #                            help='list of files that contain the preprocessed test data')
-
     path_settings.add_argument('--train_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/zhidao.train.json'],
+                               default=['../input/demo/search.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/zhidao.dev.json',
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
-                                   ],
+                               default=['../input/demo/search.dev.json'],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/testset/zhidao.test1.json'],
+                               default=['../input/demo/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
-    path_settings.add_argument('--model_dir', default='cache/models/',
+    # path_settings.add_argument('--train_files', nargs='+',
+    #                            default=[
+    #                                '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
+    #                            help='list of files that contain the preprocessed train data')
+    # path_settings.add_argument('--dev_files', nargs='+',
+    #                            default=[
+    #                                '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
+    #                                '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'
+    #                                ],
+    #                            help='list of files that contain the preprocessed dev data')
+    # path_settings.add_argument('--test_files', nargs='+',
+    #                            default=[
+    #                                '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
+    #                            help='list of files that contain the preprocessed test data')
+
+    path_settings.add_argument('--model_dir', default='demo_cache/models/',
                                help='the dir to store models')
-    path_settings.add_argument('--result_dir', default='cache/results/',
+    path_settings.add_argument('--result_dir', default='demo_cache/results/',
                                help='the dir to output the results')
-    path_settings.add_argument('--summary_dir', default='cache/summary/',
+    path_settings.add_argument('--summary_dir', default='demo_cache/summary/',
                                help='the dir to write tensorboard summary')
     path_settings.add_argument('--log_path',
                                help='path of the log file. If not set, logs are printed to console')
@@ -275,6 +275,12 @@ def evaluate(args):
     with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
         vocab = pickle.load(fin)
     assert len(args.dev_files) > 0, 'No dev files are provided.'
+
+    # data_type 容易和 data files 不一致，此处判断下
+    for f in args.train_files + args.dev_files + args.test_files:
+        if args.data_type not in f:
+            raise ValueError('Inconsistency between data_type and files')
+
     brc_data = Dataset(args.max_p_num, args.max_p_len,
                        args.max_q_len, dev_files=args.dev_files,
                        badcase_sample_log_file=args.badcase_sample_log_file)
@@ -307,6 +313,12 @@ def predict(args):
     with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
         vocab = pickle.load(fin)
     assert len(args.test_files) > 0, 'No test files are provided.'
+
+    # data_type 容易和 data files 不一致，此处判断下
+    for f in args.train_files + args.dev_files + args.test_files:
+        if args.data_type not in f:
+            raise ValueError('Inconsistency between data_type and files')
+
     brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
                        test_files=args.test_files,
                        badcase_sample_log_file=args.badcase_sample_log_file)
@@ -318,7 +330,7 @@ def predict(args):
     logger.info('Predicting answers for test set...')
     test_batches = brc_data.gen_mini_batches('test', args.batch_size,
                                              pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
-    total_batch_count = brc_data.get_data_length('dev') // args.batch_size + \
+    total_batch_count = brc_data.get_data_length('test') // args.batch_size + \
                         int(brc_data.get_data_length('test') % args.batch_size != 0)
     rc_model.evaluate(total_batch_count,
                       test_batches,

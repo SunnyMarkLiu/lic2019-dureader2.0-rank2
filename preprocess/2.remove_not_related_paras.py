@@ -107,6 +107,14 @@ not_related_para_dict = {
 }
 
 
+# -------------- 去除不相关 para 的影响比例 -----------------
+# train search: para_count: 6874089, influence_count: 256617, ratio: 0.037331055795175185
+#  dev  search: para_count: 202755,  influence_count: 9587,   ratio: 0.04728366748045671
+#  test search: para_count: 1521524, influence_count: 50633,  ratio: 0.0332778188185004
+# train zhidao: para_count: 1688050, influence_count: 5380,   ratio: 0.003187109386570303
+#  dev  zhidao: para_count: 53498,   influence_count: 177,    ratio: 0.0033085348985008784
+#  test zhidao: para_count: 401629, influence_count: 1481, ratio: 0.003687482726595938
+
 def remove_not_related_paras(sample):
 
     # ------------------- text normalize -------------------

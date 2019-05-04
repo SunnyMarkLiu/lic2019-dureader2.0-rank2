@@ -20,6 +20,7 @@ from layers.match_layer import AttentionFlowMatchLayer
 from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
+from layers.encoder import transformer_encoder_block
 
 
 class MultiAnsModel(object):
@@ -196,6 +197,15 @@ class MultiAnsModel(object):
             self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size)
         with tf.variable_scope('question_encoding'):
             self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size)
+        # with tf.variable_scope('passage_encoding'):
+        #     self.sep_p_encodes = transformer_encoder_block(inputs=self.p_emb, max_input_length=self.max_p_len,
+        #                                                    num_conv_layer=16, kernel_size=4, num_att_head=4,
+        #                                                    reuse=None)
+        # with tf.variable_scope('question_encoding'):
+        #     self.sep_q_encodes = transformer_encoder_block(inputs=self.q_emb, max_input_length=self.max_q_len,
+        #                                                    num_conv_layer=16, kernel_size=4, num_att_head=4,
+        #                                                    reuse=None)
+
         if self.use_dropout:
             self.sep_p_encodes = tf.nn.dropout(self.sep_p_encodes, self.dropout_keep_prob)
             self.sep_q_encodes = tf.nn.dropout(self.sep_q_encodes, self.dropout_keep_prob)
@@ -504,7 +514,6 @@ class MultiAnsModel(object):
         self.logger.info('we use {} model: {} pp_scores'.format(score_mode, pp_scores))
 
         tqdm_batch_iterator = tqdm(eval_batches, total=total_batch_count)
-
         for b_itx, batch in enumerate(tqdm_batch_iterator):
             feed_dict = {self.p: batch['passage_token_ids'],
                          self.q: batch['question_token_ids'],
