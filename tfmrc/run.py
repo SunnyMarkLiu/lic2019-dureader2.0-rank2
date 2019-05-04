@@ -48,6 +48,8 @@ def parse_args():
                         help='predict the answers for test set with trained model')
     parser.add_argument('--gpu', type=str, default='0',
                         help='specify gpu device')
+    parser.add_argument('--desc', type=str,
+                        help='description of current exceriment, used for save model prefix')
 
     extra_settings = parser.add_argument_group('extra settings')
     # loss选择
@@ -60,11 +62,13 @@ def parse_args():
     extra_settings.add_argument('--mrt_loss_weight', type=float, default=0,
                                 help=' the Minimum Risk Training loss weight, if 0, not use')
     # 特征选择
+    extra_settings.add_argument('--data_type', type=str,
+                                help='the type of the data, search or zhidao')
     extra_settings.add_argument('--pos_size', type=int, default=30,
                                 help='size of pos tagging, if 0, will not use pos')
     extra_settings.add_argument('--use_pos_freq', type=str2bool, default=True,
                                 help='whether use the pos frequence')
-    extra_settings.add_argument('--use_wiq_feature', type=str2bool, default=False,
+    extra_settings.add_argument('--use_wiq_feature', type=str2bool, default=True,
                                 help='whether use the word-in-question feature')
     extra_settings.add_argument('--use_keyword_feature', type=str2bool, default=True,
                                 help='whether use the keyword feature')
@@ -83,7 +87,7 @@ def parse_args():
                                 help='if True, all oov words project to unk')
     extra_settings.add_argument('--vocab_dir', default='cache/vocab',
                                 help='the dir to save/load vocabulary')
-    extra_settings.add_argument('--vocab_file', default='v4_baidu_cnt2_vocab.data',
+    extra_settings.add_argument('--vocab_file', default='v5_baidu_cnt2_vocab.data',
                                 help='the file to save/load vocabulary')
     extra_settings.add_argument('--create_vocab', type=str2bool, default=False,
                                 help='whether create vocab file when run prepare function')
@@ -113,6 +117,8 @@ def parse_args():
                                 help='train batch size')
     train_settings.add_argument('--epochs', type=int, default=15,
                                 help='train epochs')
+    train_settings.add_argument('--evaluate_every_batch_cnt', type=int, default=-1,
+                                help='evaluate every batch count that training processed, default -1, evaluate for epoch')
 
     model_settings = parser.add_argument_group('model settings')
     model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM'], default='BIDAF',
@@ -131,30 +137,30 @@ def parse_args():
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
-    path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/demo/search.train.json'],
-                               help='list of files that contain the preprocessed train data')
-    path_settings.add_argument('--dev_files', nargs='+',
-                               default=['../input/demo/search.dev.json'],
-                               help='list of files that contain the preprocessed dev data')
-    path_settings.add_argument('--test_files', nargs='+',
-                               default=['../input/demo/search.test1.json'],
-                               help='list of files that contain the preprocessed test data')
-
     # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=[
-    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/trainset/search.train.json'],
+    #                            default=['../input/demo/search.train.json'],
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=[
-    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/devset/search.dev.json',
-    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/devset/cleaned_18.search.dev.json'
-    #                                ],
+    #                            default=['../input/demo/search.dev.json'],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=[
-    #                                '/home/lq/projects/deep_learning/multi_passages_mrc/input/dureader_2.0_v4/final_mrc_dataset/testset/search.test1.json'],
+    #                            default=['../input/demo/search.test1.json'],
     #                            help='list of files that contain the preprocessed test data')
+
+    path_settings.add_argument('--train_files', nargs='+',
+                               default=[
+                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
+                               help='list of files that contain the preprocessed train data')
+    path_settings.add_argument('--dev_files', nargs='+',
+                               default=[
+                                   '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
+                                   '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'
+                                   ],
+                               help='list of files that contain the preprocessed dev data')
+    path_settings.add_argument('--test_files', nargs='+',
+                               default=[
+                                   '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
+                               help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
                                help='the dir to store models')
@@ -179,7 +185,11 @@ def prepare(args):
     for data_path in args.train_files + args.dev_files + args.test_files:
         assert os.path.exists(data_path), '{} file does not exist.'.format(data_path)
     logger.info('Preparing the directories...')
-    for dir_path in [args.vocab_dir, args.model_dir, args.result_dir, args.summary_dir]:
+
+    for dir_path in [os.path.join(args.vocab_dir, args.data_type),
+                     os.path.join(args.model_dir, args.data_type),
+                     os.path.join(args.result_dir, args.data_type),
+                     os.path.join(args.summary_dir, args.data_type)]:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
@@ -205,7 +215,7 @@ def prepare(args):
             vocab.randomly_init_embeddings(args.embed_size)
 
         logger.info('Saving vocab...')
-        with open(os.path.join(args.vocab_dir, args.vocab_file), 'wb') as fout:
+        with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'wb') as fout:
             pickle.dump(vocab, fout)
 
     logger.info('Done with preparing!')
@@ -218,13 +228,15 @@ def train(args):
     logger = logging.getLogger("brc")
 
     logger.info('check the directories...')
-    for dir_path in [args.model_dir, args.result_dir, args.summary_dir]:
+    for dir_path in [os.path.join(args.model_dir, args.data_type),
+                     os.path.join(args.result_dir, args.data_type),
+                     os.path.join(args.summary_dir, args.data_type)]:
         if not os.path.exists(dir_path):
             logger.warning("don't exist {} directory, so we create it!".format(dir_path))
             os.makedirs(dir_path)
 
     logger.info('Load data_set and vocab...')
-    with open(os.path.join(args.vocab_dir, args.vocab_file), 'rb') as fin:
+    with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
         vocab = pickle.load(fin)
     brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
                        args.train_files, args.dev_files,
@@ -234,10 +246,17 @@ def train(args):
     logger.info('Initialize the model...')
     rc_model = MultiAnsModel(vocab, args)
     logger.info('Training the model...')
-    rc_model.train(brc_data, args.epochs, args.batch_size,
-                   save_dir=args.model_dir,
-                   save_prefix=args.algo,
-                   dropout_keep_prob=args.dropout_keep_prob)
+    # rc_model.train(brc_data, args.epochs, args.batch_size,
+    #                save_dir=os.path.join(args.model_dir, args.data_type),
+    #                save_prefix=args.algo,
+    #                dropout_keep_prob=args.dropout_keep_prob)
+    rc_model.train_and_evaluate_several_batchly(
+        data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
+        evaluate_every_batch_cnt=args.evaluate_every_batch_cnt,
+        save_dir=os.path.join(args.model_dir, args.data_type),
+        save_prefix=args.desc + args.algo,
+        dropout_keep_prob=args.dropout_keep_prob
+    )
     logger.info('Done with model training!')
 
 
@@ -247,7 +266,7 @@ def evaluate(args):
     """
     logger = logging.getLogger("brc")
     logger.info('Load data_set and vocab...')
-    with open(os.path.join(args.vocab_dir, args.vocab_file), 'rb') as fin:
+    with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
         vocab = pickle.load(fin)
     assert len(args.dev_files) > 0, 'No dev files are provided.'
     brc_data = Dataset(args.max_p_num, args.max_p_len,
@@ -257,7 +276,7 @@ def evaluate(args):
     brc_data.convert_to_ids(vocab, args.use_oov2unk)
     logger.info('Restoring the model...')
     rc_model = MultiAnsModel(vocab, args)
-    rc_model.restore(model_dir=args.model_dir, model_prefix=args.algo)
+    rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type), model_prefix=args.desc + args.algo)
     logger.info('Evaluating the model on dev set...')
     dev_batches = brc_data.gen_mini_batches('dev', args.batch_size,
                                             pad_id=vocab.get_id(vocab.pad_token),
@@ -266,7 +285,7 @@ def evaluate(args):
                         int(brc_data.get_data_length('dev') % args.batch_size != 0)
     dev_loss, dev_bleu_rouge = rc_model.evaluate(total_batch_count,
                                                  dev_batches,
-                                                 result_dir=args.result_dir,
+                                                 result_dir=os.path.join(args.result_dir, args.data_type),
                                                  result_prefix='dev.predicted')
     logger.info('Loss on dev set: {}'.format(dev_loss))
     logger.info('Result on dev set: {}'.format(dev_bleu_rouge))
@@ -279,7 +298,7 @@ def predict(args):
     """
     logger = logging.getLogger("brc")
     logger.info('Load data_set and vocab...')
-    with open(os.path.join(args.vocab_dir, args.vocab_file), 'rb') as fin:
+    with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
         vocab = pickle.load(fin)
     assert len(args.test_files) > 0, 'No test files are provided.'
     brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
@@ -289,7 +308,7 @@ def predict(args):
     brc_data.convert_to_ids(vocab, args.use_oov2unk)
     logger.info('Restoring the model...')
     rc_model = MultiAnsModel(vocab, args)
-    rc_model.restore(model_dir=args.model_dir, model_prefix=args.algo)
+    rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type), model_prefix=args.desc + args.algo)
     logger.info('Predicting answers for test set...')
     test_batches = brc_data.gen_mini_batches('test', args.batch_size,
                                              pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
@@ -297,7 +316,7 @@ def predict(args):
                         int(brc_data.get_data_length('test') % args.batch_size != 0)
     rc_model.evaluate(total_batch_count,
                       test_batches,
-                      result_dir=args.result_dir,
+                      result_dir=os.path.join(args.result_dir, args.data_type),
                       result_prefix='test.predicted')
 
 

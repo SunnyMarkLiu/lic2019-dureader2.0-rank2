@@ -56,31 +56,31 @@ check_dataset = {
     #     'zhidao': f'../input/dureader_baidu_preprocess_v0/mrc_dataset/devset/zhidao.dev.json'
     # },
 
-    # ------------ dureader_2.0_v4 -------------
+    # ------------ dureader_2.0_v5 -------------
     'train': {
-        'search': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/search.train.json',
-        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/zhidao.train.json'
+        'search': f'../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json',
+        'zhidao': f'../input/dureader_2.0_v5/mrc_dataset/final_trainset/zhidao.train.json'
     },
 
-    'aug_train': {
-        'search': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/aug_search.train.json',
-        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/final_trainset/aug_zhidao.train.json'
-    },
+    # 'aug_train': {
+    #     'search': f'../input/dureader_2.0_v5/mrc_dataset/final_trainset/aug_search.train.json',
+    #     'zhidao': f'../input/dureader_2.0_v5/mrc_dataset/final_trainset/aug_zhidao.train.json'
+    # },
 
     'dev': {
-        'search': f'../input/dureader_2.0_v4/mrc_dataset/devset/search.dev.json',
-        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/devset/zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v5/mrc_dataset/devset/zhidao.dev.json'
     },
 
     'cleaned18_dev': {
-        'search': f'../input/dureader_2.0_v4/mrc_dataset/devset/cleaned_18.search.dev.json',
-        'zhidao': f'../input/dureader_2.0_v4/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+        'search': f'../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json',
+        'zhidao': f'../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
     }
 }
 
 # V3开始生成mrcdataset的时候就计算了 ceil rouge-l 和 bleu，直接统计即可
 for data_type in check_dataset.keys():
-    print(f"================== dureader_2.0_v4 {data_type} ceiling results ==================")
+    print(f"================== dureader_2.0_v5 {data_type} ceiling results ==================")
     for search_zhidao in check_dataset[data_type].keys():
         print(f"{search_zhidao}:")
         all_rouge_l, all_bleu4 = [], []

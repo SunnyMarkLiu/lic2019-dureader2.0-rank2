@@ -21,5 +21,5 @@ if __name__ == '__main__':
         sample = json.loads(line.strip())
         rouge_l, bleu4 = sample['ceil_rouge_l'], sample['ceil_bleu4']
 
-        if rouge_l > min_ceil_rouge or bleu4 > min_ceil_bleu4:
+        if rouge_l > min_ceil_rouge and bleu4 > min_ceil_bleu4:
             print(json.dumps(sample, ensure_ascii=False))

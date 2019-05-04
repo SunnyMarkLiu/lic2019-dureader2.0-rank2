@@ -338,10 +338,8 @@ class MultiAnsModel(object):
             dropout_keep_prob: float value indicating dropout keep probability
         """
         total_num, total_loss = 0, 0
-        n_batch_loss = 50, 0
 
         tqdm_batch_iterator = tqdm(train_batches, total=total_batch_count)
-
         for bitx, batch in enumerate(tqdm_batch_iterator):
             feed_dict = {self.p: batch['passage_token_ids'],
                          self.q: batch['question_token_ids'],
@@ -354,12 +352,88 @@ class MultiAnsModel(object):
             _, loss = self.sess.run([self.train_op, self.loss], feed_dict)
             total_loss += loss * len(batch['raw_data'])
             total_num += len(batch['raw_data'])
-            n_batch_loss += loss
 
             description = "train loss: {:.5f}".format(loss)
             tqdm_batch_iterator.set_description(description)
 
         return 1.0 * total_loss / total_num
+
+    def train_and_evaluate_several_batchly(self, data, epochs, batch_size, evaluate_every_batch_cnt, save_dir, save_prefix,
+              dropout_keep_prob=1.0):
+        """
+        Train the model with data，batch 的粒度评估 dev 性能
+        Args:
+            data: the BRCDataset class implemented in dataset.py
+            epochs: number of training epochs
+            batch_size: train batch size
+            evaluate_every_batch_cnt: evaluate every batch count that training processed
+            save_dir: the directory to save the model
+            save_prefix: the prefix indicating the model type
+            dropout_keep_prob: float value indicating dropout keep probability
+        """
+        pad_id = self.vocab.get_id(self.vocab.pad_token)
+        max_rouge_l = 0
+
+        processed_batch_cnt = 0     # 记录 train 处理的 batch 数
+        for epoch in range(1, epochs + 1):
+            self.logger.info('Training the model for epoch {}'.format(epoch))
+            total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('train') % batch_size != 0)
+            train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True)
+
+            # training for one epoch
+            epoch_sample_num, epoch_total_loss = 0, 0
+
+            tqdm_batch_iterator = tqdm(train_batches, total=total_batch_count)
+            for bitx, batch in enumerate(tqdm_batch_iterator):
+                feed_dict = {self.p: batch['passage_token_ids'],
+                             self.q: batch['question_token_ids'],
+                             self.p_length: batch['passage_length'],
+                             self.q_length: batch['question_length'],
+                             self.dropout_keep_prob: dropout_keep_prob}
+                feed_dict = self._add_extra_data(feed_dict, batch)
+
+                _, loss = self.sess.run([self.train_op, self.loss], feed_dict)
+                epoch_total_loss += loss * len(batch['raw_data'])
+                epoch_sample_num += len(batch['raw_data'])
+
+                description = "train loss: {:.5f}".format(loss)
+                tqdm_batch_iterator.set_description(description)
+
+                processed_batch_cnt += 1
+
+                # 每处理 evaluate_every_batch_cnt 数的 batch，进行评估
+                if evaluate_every_batch_cnt > 0 and processed_batch_cnt % evaluate_every_batch_cnt == 0:
+                    self.logger.info('Evaluating the model after processed {} batches'.format(processed_batch_cnt))
+                    if data.dev_set is not None:
+                        eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
+                        total_batch_count = data.get_data_length('dev') // batch_size + int(
+                            data.get_data_length('dev') % batch_size != 0)
+                        eval_loss, bleu_rouge = self.evaluate(total_batch_count, eval_batches)
+                        self.logger.info('Dev eval loss {}'.format(eval_loss))
+                        self.logger.info('Dev eval result: {}'.format(bleu_rouge))
+
+                        if bleu_rouge['Rouge-L'] > max_rouge_l:
+                            self.save(save_dir, save_prefix)
+                            max_rouge_l = bleu_rouge['Rouge-L']
+                    else:
+                        self.logger.warning('No dev set is loaded for evaluation in the dataset!')
+            self.logger.info('Average train loss for epoch {} is {}'.format(epoch, epoch_total_loss / epoch_sample_num))
+
+            # 一个 epoch 之后再进行评估
+            self.logger.info('Evaluating the model after epoch {}'.format(epoch))
+            if data.dev_set is not None:
+                eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
+                total_batch_count = data.get_data_length('dev') // batch_size + int(data.get_data_length('dev') % batch_size != 0)
+                eval_loss, bleu_rouge = self.evaluate(total_batch_count, eval_batches)
+                self.logger.info('Dev eval loss {}'.format(eval_loss))
+                self.logger.info('Dev eval result: {}'.format(bleu_rouge))
+
+                if bleu_rouge['Rouge-L'] > max_rouge_l:
+                    self.save(save_dir, save_prefix)
+                    max_rouge_l = bleu_rouge['Rouge-L']
+            else:
+                self.logger.warning('No dev set is loaded for evaluation in the dataset!')
+
 
     def train(self, data, epochs, batch_size, save_dir, save_prefix,
               dropout_keep_prob=1.0, evaluate=True):
@@ -395,7 +469,6 @@ class MultiAnsModel(object):
                     if bleu_rouge['Rouge-L'] > max_rouge_l:
                         self.save(save_dir, save_prefix)
                         max_rouge_l = bleu_rouge['Rouge-L']
-
                 else:
                     self.logger.warning('No dev set is loaded for evaluation in the dataset!')
             else:
