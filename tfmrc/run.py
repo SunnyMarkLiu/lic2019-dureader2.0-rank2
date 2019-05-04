@@ -149,17 +149,17 @@ def parse_args():
 
     path_settings.add_argument('--train_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
+                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/zhidao.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'
+                                   '../input/dureader_2.0_v5/mrc_dataset/devset/zhidao.dev.json',
+                                   '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
                                    ],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
+                                   '../input/dureader_2.0_v5/mrc_dataset/testset/zhidao.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
@@ -180,7 +180,7 @@ def prepare(args):
     """
     checks data, creates the directories, prepare the vocabulary and embeddings
     """
-    logger = logging.getLogger('brc')
+    logger = logging.getLogger()
     logger.info('Checking the data files...')
     for data_path in args.train_files + args.dev_files + args.test_files:
         assert os.path.exists(data_path), '{} file does not exist.'.format(data_path)
@@ -192,6 +192,11 @@ def prepare(args):
                      os.path.join(args.summary_dir, args.data_type)]:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
+
+    # data_type 容易和 data files 不一致，此处判断下
+    for f in args.train_files + args.dev_files + args.test_files:
+        if args.data_type not in f:
+            raise ValueError('Inconsistency between data_type and files')
 
     if args.create_vocab:
         logger.info('Building vocabulary...')
@@ -237,6 +242,7 @@ def train(args):
 
     logger.info('Load data_set and vocab...')
     with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
+        logger.info('load vocab from {}'.format(os.path.join(args.vocab_dir, args.data_type, args.vocab_file)))
         vocab = pickle.load(fin)
     brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
                        args.train_files, args.dev_files,
@@ -326,7 +332,7 @@ def run():
     """
     args = parse_args()
 
-    logger = logging.getLogger('brc')
+    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
