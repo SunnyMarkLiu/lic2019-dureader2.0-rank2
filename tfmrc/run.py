@@ -149,17 +149,17 @@ def parse_args():
 
     path_settings.add_argument('--train_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/zhidao.train.json'],
+                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/zhidao.dev.json',
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+                                   '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
+                                   # '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
                                    ],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/testset/zhidao.test1.json'],
+                                   '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
@@ -220,7 +220,8 @@ def prepare(args):
             vocab.randomly_init_embeddings(args.embed_size)
 
         logger.info('Saving vocab...')
-        with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'wb') as fout:
+        vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+        with open(vocab_path, 'wb') as fout:
             pickle.dump(vocab, fout)
 
     logger.info('Done with preparing!')
@@ -241,8 +242,9 @@ def train(args):
             os.makedirs(dir_path)
 
     logger.info('Load data_set and vocab...')
-    with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
-        logger.info('load vocab from {}'.format(os.path.join(args.vocab_dir, args.data_type, args.vocab_file)))
+    vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+    with open(vocab_path, 'rb') as fin:
+        logger.info('load vocab from {}'.format(vocab_path))
         vocab = pickle.load(fin)
     brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
                        args.train_files, args.dev_files,
@@ -272,7 +274,9 @@ def evaluate(args):
     """
     logger = logging.getLogger("brc")
     logger.info('Load data_set and vocab...')
-    with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
+    vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+    with open(vocab_path, 'rb') as fin:
+        logger.info('load vocab from {}'.format(vocab_path))
         vocab = pickle.load(fin)
     assert len(args.dev_files) > 0, 'No dev files are provided.'
 
@@ -286,8 +290,10 @@ def evaluate(args):
                        badcase_sample_log_file=args.badcase_sample_log_file)
     logger.info('Converting text into ids...')
     brc_data.convert_to_ids(vocab, args.use_oov2unk)
-    logger.info('Restoring the model...')
+    logger.info('Build the model...')
     rc_model = MultiAnsModel(vocab, args)
+    logger.info('restore model from {}, with prefix {}'.format(os.path.join(args.model_dir, args.data_type),
+                                                               args.desc + args.algo))
     rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type), model_prefix=args.desc + args.algo)
     logger.info('Evaluating the model on dev set...')
     dev_batches = brc_data.gen_mini_batches('dev', args.batch_size,
@@ -309,9 +315,9 @@ def predict(args):
     predicts answers for test files
     """
     logger = logging.getLogger("brc")
-    os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
-    with open(os.path.join(args.vocab_dir, args.data_type, args.vocab_file), 'rb') as fin:
-        logger.info('load vocab from {}'.format(os.path.join(args.vocab_dir, args.data_type, args.vocab_file)))
+    vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+    with open(vocab_path, 'rb') as fin:
+        logger.info('load vocab from {}'.format(vocab_path))
         vocab = pickle.load(fin)
     assert len(args.test_files) > 0, 'No test files are provided.'
 

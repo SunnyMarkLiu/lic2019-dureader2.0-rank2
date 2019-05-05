@@ -7,6 +7,7 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/5/4 22:51
 """
+import sys
 import json
 import pandas as pd
 
@@ -59,6 +60,7 @@ def post_proc(pre_ans_list):
 
     return post_ans
 
+
 # 建立id2yesno字典
 id2yesno = {}
 int2str = {0: 'Yes', 1: 'No', 2: 'Depends'}
@@ -76,23 +78,19 @@ with open('yesno模型预测结果.json') as fin:
         sample = json.loads(line.strip())
         id2yesno[int(sample['question_id'])] = int2str[int(sample['yesno_pred'])]
 
-with open('cache/results/search/test.predicted.json', 'r') as fin:
-    with open('search_postprocess_yesno.json', 'w') as fout:
-        for idx, line in enumerate(fin.readlines()):
-            if idx % 2000 == 0:
-                print(idx)
-            sample = line.strip()
-            sample = json.loads(sample)
-            sample['answers'][0] = post_proc(sample['segmented_answers'])
-            del sample['segmented_answers']
+if __name__ == '__main__':
+    for line in sys.stdin:
+        if not line.startswith('{'):
+            continue
+
+        sample = json.loads(line.strip())
+        sample['answers'][0] = post_proc(sample['segmented_answers'])
+
+        if sample['question_type'] == 'YES_NO':
+            sample['yesno_answers'] = [id2yesno[sample['question_id']]]
+        if 'segmented_question' in sample:
             del sample['segmented_question']
+        if 'segmented_answers' in sample:
+            del sample['segmented_answers']
 
-            if sample['question_type'] == 'YES_NO':
-                sample['yesno_answers'] = [id2yesno[sample['question_id']]]
-            if 'segmented_question' in sample:
-                del sample['segmented_question']
-            if 'segmented_answers' in sample:
-                del sample['segmented_answers']
-
-            content = json.dumps(sample, ensure_ascii=False)
-            fout.write(content + '\n')
+        print(json.dumps(sample, ensure_ascii=False))
