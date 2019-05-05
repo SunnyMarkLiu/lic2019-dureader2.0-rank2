@@ -87,7 +87,7 @@ def parse_args():
                                 help='if True, all oov words project to unk')
     extra_settings.add_argument('--vocab_dir', default='cache/vocab',
                                 help='the dir to save/load vocabulary')
-    extra_settings.add_argument('--vocab_file', default='v5_baidu_cnt2_vocab.data',
+    extra_settings.add_argument('--vocab_file', default='merge_sgns_bigram_char300_v5_baidu_cnt2_vocab.data',
                                 help='the file to save/load vocabulary')
     extra_settings.add_argument('--create_vocab', type=str2bool, default=False,
                                 help='whether create vocab file when run prepare function')
@@ -137,30 +137,30 @@ def parse_args():
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
-    # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=['../input/demo/search.train.json'],
-    #                            help='list of files that contain the preprocessed train data')
-    # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=['../input/demo/search.dev.json'],
-    #                            help='list of files that contain the preprocessed dev data')
-    # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=['../input/demo/search.test1.json'],
-    #                            help='list of files that contain the preprocessed test data')
-
     path_settings.add_argument('--train_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
+                               default=['../input/demo/search.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
-                                   # '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
-                                   ],
+                               default=['../input/demo/search.dev.json'],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
+                               default=['../input/demo/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
+
+    # path_settings.add_argument('--train_files', nargs='+',
+    #                            default=[
+    #                                '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
+    #                            help='list of files that contain the preprocessed train data')
+    # path_settings.add_argument('--dev_files', nargs='+',
+    #                            default=[
+    #                                '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
+    #                                # '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
+    #                                ],
+    #                            help='list of files that contain the preprocessed dev data')
+    # path_settings.add_argument('--test_files', nargs='+',
+    #                            default=[
+    #                                '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
+    #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
                                help='the dir to store models')
