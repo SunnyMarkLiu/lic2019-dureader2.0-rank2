@@ -18,6 +18,7 @@ class Dataset(object):
                  max_p_num,
                  max_p_len,
                  max_q_len,
+                 max_a_len=None,
                  train_files=[],
                  dev_files=[],
                  test_files=[],
@@ -26,6 +27,8 @@ class Dataset(object):
         self.max_p_num = max_p_num
         self.max_p_len = max_p_len
         self.max_q_len = max_q_len
+        self.max_a_len = max_a_len
+
         self.badcase_sample_log_file = badcase_sample_log_file
 
         self.pos_meta_dict = {'nrt': 0, 'eng': 1, 'n': 2, 'f': 3, 'yg': 4, 'nt': 5, 'rr': 6, 'ad': 7, 'nr': 8, 'dg': 9,
@@ -101,10 +104,16 @@ class Dataset(object):
                 self.test_set += self._load_dataset(test_file)
             self.logger.info('Test set size: {} questions.'.format(len(self.test_set)))
 
+        if self.badcase_sample_log_file:
+            self.badcase_dumper.close()
+
     def _load_dataset(self, data_path, train=False):
         """
         Loads the dataset
         """
+        if train and self.max_a_len is None:
+            raise ValueError('must provide max_a_len for training set!')
+
         badcase_sample_cnt = 0  # 错误样本的数目
         with io.open(data_path, 'r', encoding='utf-8') as fin:
             data_set = []
@@ -129,10 +138,21 @@ class Dataset(object):
                         best_match_scores = []
                         answer_labels = []
                         fake_answers = []
+
+                        # 策略一：统计答案的平均长度，如果超过 max_a_len，则过滤该样本
+                        ans_len = [len(ans) for ans in sample['segmented_answers']]
+                        if sum(ans_len) / len(ans_len) > self.max_a_len:
+                            continue
+
                         for ans_idx, answer_label in enumerate(sample['answer_labels']):
                             # 对于 multi-answer 有的fake answer 没有找到
                             if answer_label[0] == -1 or answer_label[1] == -1:
                                 continue
+
+                            # # 策略二：对单个答案进行处理，单个长度超过 max_a_len，去掉这个outlier答案，
+                            # # 如果去掉之后 answers 为空了则去掉整个样本，如果不为空，用第二好的answer
+                            # if answer_label[1] - answer_label[0] + 1 > self.max_a_len:
+                            #     continue
 
                             best_match_doc_ids.append(sample['best_match_doc_ids'][ans_idx])
                             best_match_scores.append(sample['best_match_scores'][ans_idx])
@@ -154,9 +174,6 @@ class Dataset(object):
                     self.badcase_dumper.flush()
                 else:
                     data_set.append(sample)
-
-        if self.badcase_sample_log_file:
-            self.badcase_dumper.close()
 
         return data_set
 

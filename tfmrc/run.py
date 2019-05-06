@@ -89,7 +89,7 @@ def parse_args():
                                 help='the dir to save/load vocabulary')
     extra_settings.add_argument('--vocab_file', default='v5_baidu_cnt2_vocab.data',
                                 help='the file to save/load vocabulary')
-    extra_settings.add_argument('--create_vocab', type=str2bool, default=False,
+    extra_settings.add_argument('--create_vocab', type=str2bool, default=True,
                                 help='whether create vocab file when run prepare function')
     extra_settings.add_argument('--vocab_min_cnt', type=int, default=2,
                                 help='filter the vocab where their cnt < vocab_min_cnt')
@@ -131,30 +131,30 @@ def parse_args():
                                 help='max passage num in one sample')
     model_settings.add_argument('--max_p_len', type=int, default=500,
                                 help='max length of passage')
-    model_settings.add_argument('--max_q_len', type=int, default=60,
+    model_settings.add_argument('--max_q_len', type=int, default=20,
                                 help='max length of question')
-    model_settings.add_argument('--max_a_len', type=int, default=200,
+    model_settings.add_argument('--max_a_len', type=int, default=300,       # search：300，zhidao：400
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
     # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=['../input/demo/search.train.json'],
+    #                            default=['../input/demo/zhidao.train.json',
+    #                                     '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'],
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=['../input/demo/search.dev.json'],
+    #                            default=['../input/demo/zhidao.dev.json'],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=['../input/demo/search.test1.json'],
+    #                            default=['../input/demo/zhidao.test1.json'],
     #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--train_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json'],
+                               default=['../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json',
+                                        '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
                                default=[
                                    '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
-                                   # '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'
                                    ],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
@@ -171,7 +171,7 @@ def parse_args():
     path_settings.add_argument('--log_path',
                                help='path of the log file. If not set, logs are printed to console')
     path_settings.add_argument('--pretrained_word_path',
-                               default='../../../pretrained_embeddings/chinese/merge_sgns_bigram_char300.txt',
+                               default='../../../pretrained_embeddings/chinese/2.merge_sgns_bigram_char300.txt',
                                help='pretrained word path. If not set, word embeddings will be randomly init')
     return parser.parse_args()
 
@@ -199,9 +199,11 @@ def prepare(args):
             raise ValueError('Inconsistency between data_type and files')
 
     if args.create_vocab:
-        logger.info('Building vocabulary...')
+        logger.info('load train dataset...')
         brc_data = Dataset(args.max_p_num, args.max_p_len,
-                           args.max_q_len, args.train_files, badcase_sample_log_file=args.badcase_sample_log_file)
+                           args.max_q_len, args.max_a_len,
+                           args.train_files, badcase_sample_log_file=args.badcase_sample_log_file)
+        logger.info('Building vocabulary...')
         vocab = Vocab(init_random=args.initial_tokens_random)
         for word in brc_data.word_iter('train'):
             vocab.add(word)
@@ -246,7 +248,8 @@ def train(args):
     with open(vocab_path, 'rb') as fin:
         logger.info('load vocab from {}'.format(vocab_path))
         vocab = pickle.load(fin)
-    brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
+    brc_data = Dataset(args.max_p_num, args.max_p_len,
+                       args.max_q_len, args.max_a_len,
                        args.train_files, args.dev_files,
                        badcase_sample_log_file=args.badcase_sample_log_file)
     logger.info('Converting text into ids...')
