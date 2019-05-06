@@ -24,7 +24,7 @@ nohup python run.py --predict --gpu 1 --data_type zhidao --desc 'pure_v5' --use_
 
 # demo
 ```bash
-python run.py --prepare --create_vocab true --data_type search --vocab_min_cnt 1 --desc 'pure_v5_merge_sgns_bigram_char300'
+python run.py --prepare --create_vocab true --data_type search --vocab_min_cnt 2 --desc 'pure_v5_merge_sgns_bigram_char300'
 python run.py --train --gpu 2 --data_type search --desc 'pure_v5_merge_sgns_bigram_char300' --epochs 2
 
 ```

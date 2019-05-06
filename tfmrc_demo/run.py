@@ -87,7 +87,7 @@ def parse_args():
                                 help='if True, all oov words project to unk')
     extra_settings.add_argument('--vocab_dir', default='cache/vocab',
                                 help='the dir to save/load vocabulary')
-    extra_settings.add_argument('--vocab_file', default='merge_sgns_bigram_char300_v5_baidu_cnt2_vocab.data',
+    extra_settings.add_argument('--vocab_file', default='v5_baidu_cnt2_vocab.data',
                                 help='the file to save/load vocabulary')
     extra_settings.add_argument('--create_vocab', type=str2bool, default=False,
                                 help='whether create vocab file when run prepare function')
@@ -171,7 +171,7 @@ def parse_args():
     path_settings.add_argument('--log_path',
                                help='path of the log file. If not set, logs are printed to console')
     path_settings.add_argument('--pretrained_word_path',
-                               default='../../../pretrained_embeddings/chinese/merge_sgns_bigram_char300.txt',
+                               default='../../../pretrained_embeddings/chinese/2.merge_sgns_bigram_char300.txt',
                                help='pretrained word path. If not set, word embeddings will be randomly init')
     return parser.parse_args()
 
