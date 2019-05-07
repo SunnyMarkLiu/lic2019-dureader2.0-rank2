@@ -149,17 +149,17 @@ def parse_args():
     #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/dureader_2.0_v5/mrc_dataset/final_trainset/search.train.json',
-                                        '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'],
+                               default=['../input/dureader_2.0_v5/mrc_dataset/final_trainset/zhidao.train.json',
+                                        '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/devset/search.dev.json',
+                                   '../input/dureader_2.0_v5/mrc_dataset/devset/zhidao.dev.json',
                                    ],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
                                default=[
-                                   '../input/dureader_2.0_v5/mrc_dataset/testset/search.test1.json'],
+                                   '../input/dureader_2.0_v5/mrc_dataset/testset/zhidao.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
