@@ -115,6 +115,8 @@ def parse_args():
                                 help='dropout keep rate')
     train_settings.add_argument('--batch_size', type=int, default=32,
                                 help='train batch size')
+    train_settings.add_argument('--train_answer_len_cut_bins', type=int, default=4,
+                                help='train answer len cut bins')
     train_settings.add_argument('--epochs', type=int, default=15,
                                 help='train epochs')
     train_settings.add_argument('--evaluate_every_batch_cnt', type=int, default=-1,
@@ -138,14 +140,14 @@ def parse_args():
 
     path_settings = parser.add_argument_group('path settings')
     path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/demo/zhidao.train.json',
-                                        '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.zhidao.dev.json'],
+                               default=['../input/demo/search.train.json'],
+                                        # '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=['../input/demo/zhidao.dev.json'],
+                               default=['../input/demo/search.dev.json'],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=['../input/demo/zhidao.test1.json'],
+                               default=['../input/demo/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     # path_settings.add_argument('--train_files', nargs='+',
@@ -203,7 +205,9 @@ def prepare(args):
         logger.info('load train dataset...')
         brc_data = Dataset(args.max_p_num, args.max_p_len,
                            args.max_q_len, args.max_a_len,
-                           args.train_files, badcase_sample_log_file=args.badcase_sample_log_file)
+                           train_answer_len_cut_bins=args.train_answer_len_cut_bins,
+                           train_files=args.train_files,
+                           badcase_sample_log_file=args.badcase_sample_log_file)
         logger.info('Building vocabulary...')
         vocab = Vocab(init_random=args.initial_tokens_random)
         for word in brc_data.word_iter('train'):
@@ -244,6 +248,11 @@ def train(args):
             logger.warning("don't exist {} directory, so we create it!".format(dir_path))
             os.makedirs(dir_path)
 
+    # data_type 容易和 data files 不一致，此处判断下
+    for f in args.train_files + args.dev_files + args.test_files:
+        if args.data_type not in f:
+            raise ValueError('Inconsistency between data_type and files')
+
     logger.info('Load data_set and vocab...')
     vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
     with open(vocab_path, 'rb') as fin:
@@ -251,7 +260,9 @@ def train(args):
         vocab = pickle.load(fin)
     brc_data = Dataset(args.max_p_num, args.max_p_len,
                        args.max_q_len, args.max_a_len,
-                       args.train_files, args.dev_files,
+                       train_answer_len_cut_bins=args.train_answer_len_cut_bins,
+                       train_files=args.train_files,
+                       dev_files=args.dev_files,
                        badcase_sample_log_file=args.badcase_sample_log_file)
     logger.info('Converting text into ids...')
     brc_data.convert_to_ids(vocab, args.use_oov2unk)

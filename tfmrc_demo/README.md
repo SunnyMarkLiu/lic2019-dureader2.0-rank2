@@ -1,13 +1,13 @@
 ## prepare
 ```bash
-nohup python run.py --prepare --create_vocab true --data_type search > search_prepare.log 2>&1 &
-nohup python run.py --prepare --create_vocab true --data_type zhidao > zhidao_prepare.log 2>&1 &
+nohup python run.py --prepare --create_vocab true --data_type search --max_a_len 300 > search_prepare.log 2>&1 &
+nohup python run.py --prepare --create_vocab true --data_type zhidao --max_a_len 400 > zhidao_prepare.log 2>&1 &
 ```
 
 ## train
 ```bash
-nohup python run.py --train --gpu 2 --data_type search --desc 'pure_v5' > search_train.log 2>&1 &
-nohup python run.py --train --gpu 3 --data_type zhidao --desc 'pure_v5' > zhidao_train.log 2>&1 &
+nohup python run.py --train --gpu 0 --data_type search --desc 'pure_v5' --max_a_len 300 --train_answer_len_cut_bins 4 --epochs 2 > search_train.log 2>&1 &
+nohup python run.py --train --gpu 3 --data_type zhidao --desc 'pure_v5' --max_a_len 400 --train_answer_len_cut_bins 4 --epochs 2 > zhidao_train.log 2>&1 &
 ```
 
 ## evaluate
@@ -20,11 +20,4 @@ python run.py --evaluate --gpu 1 --data_type zhidao --desc 'pure_v5' --use_para_
 ```bash
 nohup python run.py --predict --gpu 0 --data_type search --desc 'pure_v5' --use_para_prior_scores search --batch_size 128 > search_predict.log 2>&1 &
 nohup python run.py --predict --gpu 1 --data_type zhidao --desc 'pure_v5' --use_para_prior_scores baidu  --batch_size 128 > zhidao_predict.log 2>&1 &
-```
-
-# demo
-```bash
-python run.py --prepare --create_vocab true --data_type search --vocab_min_cnt 2 --desc 'pure_v5_merge_sgns_bigram_char300'
-python run.py --train --gpu 2 --data_type search --desc 'pure_v5_merge_sgns_bigram_char300' --epochs 2
-
 ```
