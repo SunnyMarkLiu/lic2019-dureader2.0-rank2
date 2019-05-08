@@ -21,6 +21,7 @@ from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
 from layers.encoder import transformer_encoder_block
+from layers.optimizer import AdamWOptimizer
 
 
 class MultiAnsModel(object):
@@ -132,6 +133,14 @@ class MultiAnsModel(object):
             self.p_keyword = tf.placeholder(tf.int32, [None, None], name='p_keyword') # shape=[batch*p_num,p_len]
             self.q_keyword = tf.placeholder(tf.int32, [None, None], name='q_keyword') # shape=[batch*p_num,q_len]
 
+        if self.config.use_para_match_score_feature:
+            self.logger.info('we use para match score feature!')
+            self.p_para_match_score = tf.placeholder(tf.float32, [None, None], name='p_para_match_score')
+
+        if self.config.use_doc_ids_feature:
+            self.logger.info('we use doc position encode feature!')
+            self.p_doc_ids = tf.placeholder(tf.int32, [None, None], name='p_para_match_score')
+
         if self.config.ps_loss_weight: # 使用Passage selection Loss
             self.logger.info('we use the passage selection loss, weight is {}'.format(self.config.ps_loss_weight))
             self.gold_passage = tf.placeholder(tf.int32, [None], name='gold_passage') # shape=[batch*p_num]
@@ -188,6 +197,12 @@ class MultiAnsModel(object):
             if self.config.use_keyword_feature:
                 self.p_emb = tf.concat([self.p_emb, tf.one_hot(self.p_keyword, 2, axis=2)], axis=-1)
                 self.q_emb = tf.concat([self.q_emb, tf.one_hot(self.q_keyword, 2, axis=2)], axis=-1)
+
+            if self.config.use_para_match_score_feature:
+                self.p_emb = tf.concat([self.p_emb, tf.expand_dims(self.p_para_match_score, axis=2)], axis=-1)
+
+            if self.config.use_doc_ids_feature:
+                self.p_emb = tf.concat([self.p_emb, tf.one_hot(self.p_doc_ids, 5, axis=2)], axis=-1)
 
     def _encode(self):
         """
@@ -294,6 +309,8 @@ class MultiAnsModel(object):
             self.optimizer = tf.train.RMSPropOptimizer(self.learning_rate)
         elif self.optim_type == 'sgd':
             self.optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+        elif self.optim_type == 'adamw':
+            self.optimizer = AdamWOptimizer(weight_decay=0.001, learning_rate=self.learning_rate)
         else:
             raise NotImplementedError('Unsupported optimizer: {}'.format(self.optim_type))
         self.train_op = self.optimizer.minimize(self.loss)
@@ -334,6 +351,12 @@ class MultiAnsModel(object):
         if self.config.use_keyword_feature:
             feed_dict[self.p_keyword] = batch['keyword_passages']
             feed_dict[self.q_keyword] = batch['keyword_questions']
+
+        if self.config.use_para_match_score_feature:
+            feed_dict[self.p_para_match_score] = batch['passage_para_match_socre']
+
+        if self.config.use_doc_ids_feature:
+            feed_dict[self.p_doc_ids] = batch['doc_ids']
 
         if self.config.ps_loss_weight:
             feed_dict[self.gold_passage] = batch['is_selected'] # shape=[batch*p_num]
@@ -536,6 +559,8 @@ class MultiAnsModel(object):
                                                     padded_p_len, para_prior_scores=pp_scores)
                 if save_full_info:
                     sample['pred_answers'] = [best_answer]
+                    sample['start_prob'] = start_prob.tolist()
+                    sample['end_prob'] = end_prob.tolist()
                     pred_answers.append(sample)
                 else:
                     pred_answers.append({'question_id': sample['question_id'],
@@ -544,7 +569,10 @@ class MultiAnsModel(object):
                                          'entity_answers': [[]],
                                          'yesno_answers': [],
                                          'segmented_question': sample['segmented_question'],
-                                         'segmented_answers': segmented_pred})
+                                         'segmented_answers': segmented_pred,
+
+                                         'start_prob': start_prob.tolist(),  # 保存 start 和 end 的概率，用于后期的 ensemble
+                                         'end_prob': end_prob.tolist()})
                 if 'segmented_answers' in sample:
                     ref_answers.append({'question_id': sample['question_id'],
                                          'question_type': sample['question_type'],
@@ -602,8 +630,7 @@ class MultiAnsModel(object):
             segmented_pred = []
         else:
             segmented_pred = sample['documents'][best_p_idx]['segmented_passage'][best_span[0]: best_span[1] + 1]
-            best_answer = ''.join(
-                sample['documents'][best_p_idx]['segmented_passage'][best_span[0]: best_span[1] + 1])
+            best_answer = ''.join(segmented_pred)
         return best_answer, segmented_pred
 
     def find_best_answer_for_passage(self, start_probs, end_probs, passage_len=None):

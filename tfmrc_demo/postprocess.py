@@ -7,6 +7,7 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/5/4 22:51
 """
+import re
 import sys
 import json
 import pandas as pd
@@ -39,24 +40,44 @@ def _convert_punctuation(text):
     return text
 
 
-def post_proc(pre_ans_list):
+def post_process(pre_ans_list):
+
+    # 开头的标点符号的去除
+    start = 0
+    while start < len(pre_ans_list):
+        if pre_ans_list[start] not in {'.', ',', ';', ')'}:
+            break
+        start += 1
+    seg_ans = pre_ans_list[start:]
+
     # url 映射处理
-    for i, token in enumerate(pre_ans_list):
+    for i, token in enumerate(seg_ans):
         if token in idx2url:
-            pre_ans_list[i] = idx2url[token]
-    #             pre_ans_list[i] = ''  # 删除url_xxx模式
+            seg_ans[i] = idx2url[token]
+            # seg_ans[i] = ''  # 删除url_xxx模式
 
     # 拼接list为str
-    pre_ans = ''.join(pre_ans_list)
+    pre_ans = ''.join(seg_ans).replace('......', '').replace('谢邀.', '').replace('谢邀,', '')\
+                .replace(',,', ',').replace(';;', ';').replace('!.', '.') \
+                .replace('哈哈,', '').replace('哈哈.', '').replace('哈哈!', '').replace('哈哈', '') \
+                .replace('呵呵,', '').replace('呵呵.', '').replace('呵呵!', '').replace('哈哈', '')\
+                .replace('是是', '').replace('的的', '的')
 
     # 字符串替换处理
     post_ans = _remove_space(pre_ans)
+    # spliter 去除
     post_ans = _convert_punctuation(post_ans)
+    # 末尾是,的替换为句号
+    if post_ans == '':
+        return post_ans
+
+    if post_ans.endswith(','):
+        tmp = list(post_ans)
+        tmp[-1] = '.'
+        post_ans = ''.join(tmp)
     # 末尾添加句号
-    # TODO 存在bug
-    if len(post_ans) >= 10 and post_ans[-1] != '。' and post_ans[-1] != '.' and post_ans[-1] != '！' and post_ans[
-        -1] != '!':
-        post_ans += '。'
+    if post_ans[-1] not in {'。', '.', '！', '!'}:
+        post_ans += '.'
 
     return post_ans
 
@@ -84,7 +105,7 @@ if __name__ == '__main__':
             continue
 
         sample = json.loads(line.strip())
-        sample['answers'][0] = post_proc(sample['segmented_answers'])
+        sample['answers'][0] = post_process(sample['segmented_answers'])
 
         if sample['question_type'] == 'YES_NO':
             sample['yesno_answers'] = [id2yesno[sample['question_id']]]

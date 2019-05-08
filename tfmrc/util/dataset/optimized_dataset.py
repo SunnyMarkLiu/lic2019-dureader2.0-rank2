@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import numpy as np
+import pandas as pd
 from util.fine_classify import FineClassify
 
 
@@ -19,6 +20,7 @@ class Dataset(object):
                  max_p_len,
                  max_q_len,
                  max_a_len=None,
+                 train_answer_len_cut_bins=None,
                  train_files=[],
                  dev_files=[],
                  test_files=[],
@@ -28,6 +30,7 @@ class Dataset(object):
         self.max_p_len = max_p_len
         self.max_q_len = max_q_len
         self.max_a_len = max_a_len
+        self.train_answer_len_cut_bins = train_answer_len_cut_bins      # 将训练集答案平均长度切分成bin的数目，每个bin的样本大致一致
 
         self.badcase_sample_log_file = badcase_sample_log_file
 
@@ -58,29 +61,6 @@ class Dataset(object):
                               'dg': 8.695932235019891e-06, 'mg': 6.293567636010787e-06, 'vi': 4.930251876631165e-06,
                               'rg': 4.508356206848724e-06, 'bg': 2.4407187508075073e-08, 'in': 3.4867410725821534e-09}
 
-        # data V1 pos 频率
-        # self.pos_freq_dict = {'x': 0.20563602309030032, 'n': 0.19460698867947954, 'v': 0.16991158738054804,
-        #                       'm': 0.05210700869194445, 'd': 0.04541667667289912, 'uj': 0.04306780794895106,
-        #                       'r': 0.0340126331747856, 'c': 0.032380374061558345, 'p': 0.02728709228686929,
-        #                       'a': 0.025993176157884462, 'eng': 0.0231126718110954, '<splitter>': 0.018408304927885696,
-        #                       'f': 0.016472189616879736, 'vn': 0.01611112554186812, 'nr': 0.015056414730154373,
-        #                       'ns': 0.010653695322065906, 'l': 0.007673187462885046, 't': 0.007473765292177904,
-        #                       'ul': 0.007273519751486028, 'nz': 0.005452620693542182, 'b': 0.005098202390550196,
-        #                       'q': 0.0043298086890038445, 'u': 0.004153672859095093, 'i': 0.0033002858106722798,
-        #                       'y': 0.0032392126687888047, 'zg': 0.003013795531420795, 's': 0.002455900287280976,
-        #                       'ad': 0.0024424943862993848, 'j': 0.00213328628361992, 'ng': 0.002100501781926212,
-        #                       'nrt': 0.001278343980781499, 'nt': 0.001120002091098374, 'z': 0.0009073961986118701,
-        #                       'ug': 0.0007811297975800438, 'df': 0.0007068435278463239, 'an': 0.0006696448481789065,
-        #                       'k': 0.0006239118732729039, 'vg': 0.0006223402821512502, 'uz': 0.0004888007795876125,
-        #                       'ud': 0.0004695332684766103, 'uv': 0.0003955998715934905, 'g': 0.0003019186644416073,
-        #                       'mq': 0.0001960796806500702, 'e': 0.00016094596062690475, 'o': 0.00015848238535512324,
-        #                       'ag': 0.00015767208473522692, 'nrfg': 0.00012929195899160048,
-        #                       'tg': 0.00012542342699983745, 'h': 0.00011773210579324102, 'vd': 8.402948121973114e-05,
-        #                       'yg': 5.9854423612421454e-05, 'rz': 1.8617310210359595e-05, 'rr': 1.5140859163707681e-05,
-        #                       'vq': 1.212837056877059e-05, 'dg': 8.82182126500016e-06, 'mg': 6.616365948750119e-06,
-        #                       'vi': 4.8846751078426805e-06, 'rg': 4.767050824309346e-06, 'bg': 1.9604047255555908e-08,
-        #                       'in': 3.2673412092593183e-09}
-
         # 问题分类器
         self.rough_cls_dict = {'DESCRIPTION': 0, 'ENTITY': 1, 'YES_NO': 2}
         self.fine_cls = FineClassify()
@@ -106,6 +86,36 @@ class Dataset(object):
 
         if self.badcase_sample_log_file:
             self.badcase_dumper.close()
+
+        # 对于训练集，统计训练集的答案长度分布
+        if self.train_set and self.train_answer_len_cut_bins > 0:
+            self.logger.info('cut the mean answer length with same frequence')
+            # 统计该样本答案的长度
+            train_answer_lens = []
+            for sample in self.train_set:
+                ans_lens = [len(ans) for ans in sample['segmented_answers']]
+                mean_ans_len = sum(ans_lens) / len(ans_lens)
+                train_answer_lens.append(mean_ans_len)
+                sample['mean_answer_len'] = mean_ans_len
+
+            def same_freq_bincut(series, n):
+                edages = pd.Series([i / n for i in range(n)])  # 转换成百分比
+                func = lambda x: (edages >= x).values.argmax()  # 函数：(edages >= x)返回fasle/true列表中第一次出现true的索引值
+                return series.rank(pct=1).astype(float).apply(func)
+
+            sample_belong_bins = same_freq_bincut(pd.Series(train_answer_lens), self.train_answer_len_cut_bins)
+
+            # 按照不同的 bin 进行划分训练集
+            self.bin_cut_train_sets = [[] for _ in range(self.train_answer_len_cut_bins)]
+            for i, sample in enumerate(self.train_set):
+                answer_bin = sample_belong_bins[i]
+                self.bin_cut_train_sets[answer_bin].append(sample)
+
+            self.max_bin_data_size = max([len(bin_set) for bin_set in self.bin_cut_train_sets])
+            self.train_set.clear()  # save memory
+            self.logger.info('train average answers length bincut done.')
+        else:
+            self.bin_cut_train_sets = []    # dev/test
 
     def _load_dataset(self, data_path, train=False):
         """
@@ -185,16 +195,17 @@ class Dataset(object):
         Returns:
             a generator
         """
-        if set_name is None:
-            data_set = self.train_set + self.dev_set + self.test_set
-        elif set_name == 'train':
-            data_set = self.train_set
+        if set_name == 'train':
+            data_set = []
+            for bin_set in self.bin_cut_train_sets:
+                data_set += bin_set
         elif set_name == 'dev':
             data_set = self.dev_set
         elif set_name == 'test':
             data_set = self.test_set
         else:
             raise NotImplementedError('No data set named as {}'.format(set_name))
+
         if data_set is not None:
             for sample in data_set:
                 for token in sample['segmented_question']:
@@ -211,24 +222,21 @@ class Dataset(object):
             use_oov2unk: 所有oov的词是否映射到 <unk>, 默认为 False
         """
         # 如果是train, 则丢弃segmented_passage字段
-        if self.train_set:
-            for sample in self.train_set:
-                sample['question_token_ids'] = vocab.convert_to_ids(
-                    sample['segmented_question'], use_oov2unk)
-                for doc in sample['documents']:
-                    doc['passage_token_ids'] = vocab.convert_to_ids(
-                        doc['segmented_passage'], use_oov2unk)
-                    doc['segmented_passage'] = []
+        if self.bin_cut_train_sets:
+            for bin_set in self.bin_cut_train_sets:
+                for sample in bin_set:
+                    sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], use_oov2unk)
+                    for doc in sample['documents']:
+                        doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
+                        doc['segmented_passage'] = []
 
         for data_set in [self.dev_set, self.test_set]:
             if data_set is None:
                 continue
             for sample in data_set:
-                sample['question_token_ids'] = vocab.convert_to_ids(
-                    sample['segmented_question'], use_oov2unk)
+                sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], use_oov2unk)
                 for doc in sample['documents']:
-                    doc['passage_token_ids'] = vocab.convert_to_ids(
-                        doc['segmented_passage'], use_oov2unk)
+                    doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
 
     def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True):
         """
@@ -241,23 +249,41 @@ class Dataset(object):
         Returns:
             a generator for all batches
         """
-        is_testing = False
         if set_name == 'train':
-            data = self.train_set
+            # 分别对每个 bin 的数据进行 shuffle 再进行均衡采样
+            data_size = self.max_bin_data_size
+            if shuffle:
+                for bin_set in self.bin_cut_train_sets:
+                    np.random.shuffle(bin_set)
+
+            bin_batch_size = batch_size // self.train_answer_len_cut_bins
+            for batch_start in np.arange(0, data_size, bin_batch_size):
+                # 从每个 bin_set 中均衡采样数据
+                batch_set = []
+                for bin_set in self.bin_cut_train_sets:
+                    batch_set += bin_set[batch_start: batch_start + bin_batch_size]
+                yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+
         elif set_name == 'dev':
-            data = self.dev_set
+            data_size = len(self.dev_set)
+            indices = np.arange(data_size)
+            if shuffle:
+                np.random.shuffle(indices)
+            for batch_start in np.arange(0, data_size, batch_size):
+                batch_indices = indices[batch_start: batch_start + batch_size]
+                yield self._one_mini_batch(self.dev_set, batch_indices, pad_id, is_testing=False)
+
         elif set_name == 'test':
-            data = self.test_set
-            is_testing = True
+            data_size = len(self.test_set)
+            indices = np.arange(data_size)
+            if shuffle:
+                np.random.shuffle(indices)
+            for batch_start in np.arange(0, data_size, batch_size):
+                batch_indices = indices[batch_start: batch_start + batch_size]
+                yield self._one_mini_batch(self.test_set, batch_indices, pad_id, is_testing=True)
+
         else:
             raise NotImplementedError('No data set named as {}'.format(set_name))
-        data_size = len(data)
-        indices = np.arange(data_size)
-        if shuffle:
-            np.random.shuffle(indices)
-        for batch_start in np.arange(0, data_size, batch_size):
-            batch_indices = indices[batch_start: batch_start + batch_size]
-            yield self._one_mini_batch(data, batch_indices, pad_id, is_testing)
 
     def _one_mini_batch(self, data, indices, pad_id, is_testing):
         """
@@ -285,6 +311,8 @@ class Dataset(object):
                       'passage_length': [],
 
                       'wiq_feature': [],
+                      'passage_para_match_socre': [],
+                      'doc_ids': [],    # doc 的位置编码，所在下标
 
                       'start_ids': [],
                       'end_ids': [],
@@ -313,20 +341,16 @@ class Dataset(object):
 
                     passage_token_ids = sample['documents'][pidx]['passage_token_ids']
                     batch_data['passage_token_ids'].append(passage_token_ids)
-                    batch_data['passage_length'].append(
-                        min(len(passage_token_ids), self.max_p_len))
-                    batch_data['pos_questions'].append(
-                        [self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['pos_question']])
-                    batch_data['pos_freq_questions'].append(
-                        [self.pos_freq_dict[pos_str] for pos_str in sample['pos_question']])
+                    batch_data['passage_length'].append(min(len(passage_token_ids), self.max_p_len))
+                    batch_data['pos_questions'].append([self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['pos_question']])
+                    batch_data['pos_freq_questions'].append([self.pos_freq_dict[pos_str] for pos_str in sample['pos_question']])
                     batch_data['keyword_questions'].append(sample['keyword_question'])
-                    batch_data['pos_passages'].append(
-                        [self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['documents'][pidx]['pos_passage']])
-                    batch_data['pos_freq_passages'].append(
-                        [self.pos_freq_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
-                    batch_data['keyword_passages'].append(
-                        sample['documents'][pidx]['keyword_passage'])
+                    batch_data['pos_passages'].append([self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['documents'][pidx]['pos_passage']])
+                    batch_data['pos_freq_passages'].append([self.pos_freq_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
+                    batch_data['keyword_passages'].append(sample['documents'][pidx]['keyword_passage'])
                     batch_data['wiq_feature'].append(sample['documents'][pidx]['passage_word_in_question'])
+                    batch_data['passage_para_match_socre'].append(sample['documents'][pidx]['passage_para_match_socre'])
+                    batch_data['doc_ids'].append([pidx] * len(passage_token_ids))
 
                     if not is_testing:
                         batch_data['is_selected'].append(
@@ -348,6 +372,8 @@ class Dataset(object):
                     batch_data['pos_freq_passages'].append([])
                     batch_data['keyword_passages'].append([])
                     batch_data['wiq_feature'].append([])
+                    batch_data['passage_para_match_socre'].append([])
+                    batch_data['doc_ids'].append([])
                     batch_data['is_selected'].append(0)
 
         batch_data, padded_p_len, padded_q_len = self._dynamic_padding(batch_data, pad_id)
@@ -409,12 +435,14 @@ class Dataset(object):
             (freq + [0.0] * (pad_p_len - len(freq)))[: pad_p_len] for freq in batch_data['pos_freq_passages']]
 
         batch_data['wiq_feature'] = [(wiq + [-1] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
+        batch_data['passage_para_match_socre'] = [(wiq + [0] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['passage_para_match_socre']]
+        batch_data['doc_ids'] = [(did + [-1] * (pad_p_len - len(did)))[: pad_p_len] for did in batch_data['doc_ids']]
 
         return batch_data, pad_p_len, pad_q_len
 
     def get_data_length(self, set_name):
         if set_name == 'train':
-            return len(self.train_set)
+            return sum([len(bin_set) for bin_set in self.bin_cut_train_sets])
         elif set_name == 'dev':
             return len(self.dev_set)
         elif set_name == 'test':
