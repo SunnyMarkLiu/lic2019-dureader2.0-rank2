@@ -100,7 +100,7 @@ class Dataset(object):
 
             def same_freq_bincut(series, n):
                 edages = pd.Series([i / n for i in range(n)])  # 转换成百分比
-                func = lambda x: (edages >= x).argmax()  # 函数：(edages >= x)返回fasle/true列表中第一次出现true的索引值
+                func = lambda x: (edages >= x).values.argmax()  # 函数：(edages >= x)返回fasle/true列表中第一次出现true的索引值
                 return series.rank(pct=1).astype(float).apply(func)
 
             sample_belong_bins = same_freq_bincut(pd.Series(train_answer_lens), self.train_answer_len_cut_bins)
@@ -114,6 +114,8 @@ class Dataset(object):
             self.max_bin_data_size = max([len(bin_set) for bin_set in self.bin_cut_train_sets])
             self.train_set.clear()  # save memory
             self.logger.info('train average answers length bincut done.')
+        else:
+            self.bin_cut_train_sets = []    # dev/test
 
     def _load_dataset(self, data_path, train=False):
         """
@@ -309,6 +311,8 @@ class Dataset(object):
                       'passage_length': [],
 
                       'wiq_feature': [],
+                      'passage_para_match_socre': [],
+                      'doc_ids': [],    # doc 的位置编码，所在下标
 
                       'start_ids': [],
                       'end_ids': [],
@@ -337,20 +341,16 @@ class Dataset(object):
 
                     passage_token_ids = sample['documents'][pidx]['passage_token_ids']
                     batch_data['passage_token_ids'].append(passage_token_ids)
-                    batch_data['passage_length'].append(
-                        min(len(passage_token_ids), self.max_p_len))
-                    batch_data['pos_questions'].append(
-                        [self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['pos_question']])
-                    batch_data['pos_freq_questions'].append(
-                        [self.pos_freq_dict[pos_str] for pos_str in sample['pos_question']])
+                    batch_data['passage_length'].append(min(len(passage_token_ids), self.max_p_len))
+                    batch_data['pos_questions'].append([self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['pos_question']])
+                    batch_data['pos_freq_questions'].append([self.pos_freq_dict[pos_str] for pos_str in sample['pos_question']])
                     batch_data['keyword_questions'].append(sample['keyword_question'])
-                    batch_data['pos_passages'].append(
-                        [self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['documents'][pidx]['pos_passage']])
-                    batch_data['pos_freq_passages'].append(
-                        [self.pos_freq_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
-                    batch_data['keyword_passages'].append(
-                        sample['documents'][pidx]['keyword_passage'])
+                    batch_data['pos_passages'].append([self.pos_meta_dict[pos_str] if pos_str in self.pos_meta_dict else self.pos_meta_dict['other'] for pos_str in sample['documents'][pidx]['pos_passage']])
+                    batch_data['pos_freq_passages'].append([self.pos_freq_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
+                    batch_data['keyword_passages'].append(sample['documents'][pidx]['keyword_passage'])
                     batch_data['wiq_feature'].append(sample['documents'][pidx]['passage_word_in_question'])
+                    batch_data['passage_para_match_socre'].append(sample['documents'][pidx]['passage_para_match_socre'])
+                    batch_data['doc_ids'].append([pidx] * len(passage_token_ids))
 
                     if not is_testing:
                         batch_data['is_selected'].append(
@@ -372,6 +372,8 @@ class Dataset(object):
                     batch_data['pos_freq_passages'].append([])
                     batch_data['keyword_passages'].append([])
                     batch_data['wiq_feature'].append([])
+                    batch_data['passage_para_match_socre'].append([])
+                    batch_data['doc_ids'].append([])
                     batch_data['is_selected'].append(0)
 
         batch_data, padded_p_len, padded_q_len = self._dynamic_padding(batch_data, pad_id)
@@ -433,6 +435,8 @@ class Dataset(object):
             (freq + [0.0] * (pad_p_len - len(freq)))[: pad_p_len] for freq in batch_data['pos_freq_passages']]
 
         batch_data['wiq_feature'] = [(wiq + [-1] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
+        batch_data['passage_para_match_socre'] = [(wiq + [0] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['passage_para_match_socre']]
+        batch_data['doc_ids'] = [(did + [-1] * (pad_p_len - len(did)))[: pad_p_len] for did in batch_data['doc_ids']]
 
         return batch_data, pad_p_len, pad_q_len
 

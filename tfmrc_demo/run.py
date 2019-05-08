@@ -79,6 +79,10 @@ def parse_args():
                                 help='whether use the fine classify feature')
     extra_settings.add_argument('--fine_cls_num', type=int, default=13,
                                 help='fine classify nums')
+    extra_settings.add_argument('--use_para_match_score_feature', type=str2bool, default=True,
+                                help='whether to use the para match score feature')
+    extra_settings.add_argument('--use_doc_ids_feature', type=str2bool, default=True,
+                                help='whether to use doc positional encode feature')
 
     # 词表选择相关
     extra_settings.add_argument('--initial_tokens_random', type=str2bool, default=False,
@@ -115,7 +119,7 @@ def parse_args():
                                 help='dropout keep rate')
     train_settings.add_argument('--batch_size', type=int, default=32,
                                 help='train batch size')
-    train_settings.add_argument('--train_answer_len_cut_bins', type=int, default=4,
+    train_settings.add_argument('--train_answer_len_cut_bins', type=int, default=6,
                                 help='train answer len cut bins')
     train_settings.add_argument('--epochs', type=int, default=15,
                                 help='train epochs')

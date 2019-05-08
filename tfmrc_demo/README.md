@@ -6,8 +6,8 @@ nohup python run.py --prepare --create_vocab true --data_type zhidao --max_a_len
 
 ## train
 ```bash
-nohup python run.py --train --gpu 0 --data_type search --desc 'pure_v5' --max_a_len 300 --train_answer_len_cut_bins 4 --epochs 2 > search_train.log 2>&1 &
-nohup python run.py --train --gpu 3 --data_type zhidao --desc 'pure_v5' --max_a_len 400 --train_answer_len_cut_bins 4 --epochs 2 > zhidao_train.log 2>&1 &
+nohup python run.py --train --gpu 0 --data_type search --desc 'pure_v5' --max_a_len 300 --train_answer_len_cut_bins 6 --epochs 2 > search_train.log 2>&1 &
+nohup python run.py --train --gpu 3 --data_type zhidao --desc 'pure_v5' --max_a_len 400 --train_answer_len_cut_bins 6 --epochs 2 > zhidao_train.log 2>&1 &
 ```
 
 ## evaluate
