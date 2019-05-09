@@ -273,17 +273,17 @@ def train(args):
     logger.info('Initialize the model...')
     rc_model = MultiAnsModel(vocab, args)
     logger.info('Training the model...')
-    # rc_model.train(brc_data, args.epochs, args.batch_size,
-    #                save_dir=os.path.join(args.model_dir, args.data_type),
-    #                save_prefix=args.algo,
-    #                dropout_keep_prob=args.dropout_keep_prob)
-    rc_model.train_and_evaluate_several_batchly(
-        data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
-        evaluate_every_batch_cnt=args.evaluate_every_batch_cnt,
-        save_dir=os.path.join(args.model_dir, args.data_type),
-        save_prefix=args.desc + args.algo,
-        dropout_keep_prob=args.dropout_keep_prob
-    )
+    rc_model.train(brc_data, args.epochs, args.batch_size,
+                   save_dir=os.path.join(args.model_dir, args.data_type),
+                   save_prefix=args.algo,
+                   dropout_keep_prob=args.dropout_keep_prob)
+    # rc_model.train_and_evaluate_several_batchly(
+    #     data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
+    #     evaluate_every_batch_cnt=args.evaluate_every_batch_cnt,
+    #     save_dir=os.path.join(args.model_dir, args.data_type),
+    #     save_prefix=args.desc + args.algo,
+    #     dropout_keep_prob=args.dropout_keep_prob
+    # )
     logger.info('Done with model training!')
 
 
