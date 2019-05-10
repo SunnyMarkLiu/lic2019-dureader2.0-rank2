@@ -1,7 +1,7 @@
 """
 This module implements the Vocab class for converting string to id and back
 """
-import re
+import gc
 import logging
 import operator
 import numpy as np
@@ -242,6 +242,9 @@ class Vocab(LoggerMixin):
                     oov_text_count += self.token_cnt[key]
                     oov_words.append((key, i, self.token_cnt[key]))
 
+        del embeddings_index
+        gc.collect()
+
         oov_count = len(oov_words)
         self.logger.info("Missed words: {}".format(oov_count))
         self.logger.info('Found embeddings for {:.6%} of vocab'.format((self.size() - oov_count) / self.size()))
@@ -280,6 +283,9 @@ class Vocab(LoggerMixin):
         # set vectors for not oov words
         for not_oov_word in not_oov_words:
             self.embedding_matrix[self.get_id(not_oov_word[0])] = embedding_matrix_tmp[not_oov_word[1]]
+
+        del embedding_matrix_tmp
+        gc.collect()
 
         self.logger.info('Final vocabulary size: {}'.format(self.size()))
         self.logger.info('trainable oov words start from 0 to {}'.format(self.oov_word_end_idx))

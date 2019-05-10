@@ -83,6 +83,8 @@ def parse_args():
                                 help='whether to use the para match score feature')
     extra_settings.add_argument('--use_doc_ids_feature', type=str2bool, default=True,
                                 help='whether to use doc positional encode feature')
+    extra_settings.add_argument('--use_distance_features', default=True,
+                                help='whether to use the para distance score feature')
 
     # 词表选择相关
     extra_settings.add_argument('--initial_tokens_random', type=str2bool, default=False,
@@ -123,8 +125,8 @@ def parse_args():
                                 help='train answer len cut bins')
     train_settings.add_argument('--epochs', type=int, default=15,
                                 help='train epochs')
-    train_settings.add_argument('--evaluate_every_batch_cnt', type=int, default=-1,
-                                help='evaluate every batch count that training processed, default -1, evaluate for epoch')
+    train_settings.add_argument('--evaluate_cnt_in_one_epoch', type=int, default=0,
+                                help='evaluate count in one epoch, default 0, evaluate for epoch (must >0)')
 
     model_settings = parser.add_argument_group('model settings')
     model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM'], default='BIDAF',
@@ -145,28 +147,25 @@ def parse_args():
     path_settings = parser.add_argument_group('path settings')
     # path_settings.add_argument('--train_files', nargs='+',
     #                            default=['../input/demo/search.train.json'],
-    #                                     # '../input/dureader_2.0_v5/mrc_dataset/devset/cleaned_18.search.dev.json'],
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
     #                            default=['../input/demo/search.dev.json'],
+    #                                     # '../input/demo/cleaned_18.search.dev.json'],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
     #                            default=['../input/demo/search.test1.json'],
     #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--train_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/final_mrc_dataset/trainset/zhidao.train.json',
-                                   '../input/dureader_2.0_v5/final_mrc_dataset/devset/cleaned_18.zhidao.dev.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/search.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json'
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
+                                   # '../input/dureader_2.0_v5/final_mrc_dataset/devset/cleaned_18.search.dev.json'
                                    ],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=[
-                                   '../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
@@ -273,17 +272,17 @@ def train(args):
     logger.info('Initialize the model...')
     rc_model = MultiAnsModel(vocab, args)
     logger.info('Training the model...')
-    rc_model.train(brc_data, args.epochs, args.batch_size,
-                   save_dir=os.path.join(args.model_dir, args.data_type),
-                   save_prefix=args.algo,
-                   dropout_keep_prob=args.dropout_keep_prob)
-    # rc_model.train_and_evaluate_several_batchly(
-    #     data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
-    #     evaluate_every_batch_cnt=args.evaluate_every_batch_cnt,
-    #     save_dir=os.path.join(args.model_dir, args.data_type),
-    #     save_prefix=args.desc + args.algo,
-    #     dropout_keep_prob=args.dropout_keep_prob
-    # )
+    # rc_model.train(brc_data, args.epochs, args.batch_size,
+    #                save_dir=os.path.join(args.model_dir, args.data_type),
+    #                save_prefix=args.desc + args.algo,
+    #                dropout_keep_prob=args.dropout_keep_prob)
+    rc_model.train_and_evaluate_several_batchly(
+        data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
+        evaluate_cnt_in_one_epoch=args.evaluate_cnt_in_one_epoch,
+        save_dir=os.path.join(args.model_dir, args.data_type),
+        save_prefix=args.desc + args.algo,
+        dropout_keep_prob=args.dropout_keep_prob
+    )
     logger.info('Done with model training!')
 
 

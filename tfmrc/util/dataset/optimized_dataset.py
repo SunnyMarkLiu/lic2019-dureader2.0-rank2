@@ -6,6 +6,7 @@ import json
 import logging
 import numpy as np
 import pandas as pd
+import itertools
 from util.fine_classify import FineClassify
 
 
@@ -111,9 +112,9 @@ class Dataset(object):
                 answer_bin = sample_belong_bins[i]
                 self.bin_cut_train_sets[answer_bin].append(sample)
 
-            self.max_bin_data_size = max([len(bin_set) for bin_set in self.bin_cut_train_sets])
+            self.min_bin_data_size = min([len(bin_set) for bin_set in self.bin_cut_train_sets])
             self.train_set.clear()  # save memory
-            self.logger.info('train average answers length bincut done.')
+            self.logger.info('bincut done.')
         else:
             self.bin_cut_train_sets = []    # dev/test
 
@@ -251,18 +252,38 @@ class Dataset(object):
         """
         if set_name == 'train':
             # 分别对每个 bin 的数据进行 shuffle 再进行均衡采样
-            data_size = self.max_bin_data_size
+            data_size = self.min_bin_data_size
             if shuffle:
                 for bin_set in self.bin_cut_train_sets:
                     np.random.shuffle(bin_set)
 
+            bin_left_idx = [0] * self.train_answer_len_cut_bins
             bin_batch_size = batch_size // self.train_answer_len_cut_bins
+            # 实际训练的 batch size 大小
+            true_batch_size = bin_batch_size * self.train_answer_len_cut_bins
             for batch_start in np.arange(0, data_size, bin_batch_size):
                 # 从每个 bin_set 中均衡采样数据
                 batch_set = []
-                for bin_set in self.bin_cut_train_sets:
+                for bin_i, bin_set in enumerate(self.bin_cut_train_sets):
                     batch_set += bin_set[batch_start: batch_start + bin_batch_size]
+                    bin_left_idx[bin_i] = batch_start + bin_batch_size
                 yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+
+            # 剩下的bin的样本进行拼接
+            left_set = []
+            for idx, bin_set in enumerate(self.bin_cut_train_sets):
+                left_set += bin_set[bin_left_idx[idx]:]
+
+            if len(left_set) > 0:
+                if shuffle:
+                    np.random.shuffle(left_set)
+
+                left_data_size = len(left_set)
+                for batch_start in np.arange(0, left_data_size, batch_size):
+                    left_batch_set = left_set[batch_start: batch_start + batch_size]
+                    if len(left_batch_set) < true_batch_size:
+                        break
+                    yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
 
         elif set_name == 'dev':
             data_size = len(self.dev_set)
@@ -285,6 +306,9 @@ class Dataset(object):
         else:
             raise NotImplementedError('No data set named as {}'.format(set_name))
 
+    def _split_list_by_specific_value(sekf, iterable, splitters):
+        return [list(g) for k, g in itertools.groupby(iterable, lambda x: x in splitters) if not k]
+
     def _one_mini_batch(self, data, indices, pad_id, is_testing):
         """
         Get one mini batch
@@ -295,7 +319,19 @@ class Dataset(object):
         Returns:
             one batch of data
         """
-        batch_data = {'raw_data': [data[i] for i in indices],
+        batch_raw_data = []
+        for i in indices:
+            sample = data[i]
+            cleaned_sample = {'documents': [{'segmented_passage': doc['segmented_passage']} for doc in sample['documents']],
+                              'answer_labels': sample['answer_labels'],
+                              'question_id': sample['question_id'],
+                              'question_type': sample['question_type'],
+                              'segmented_question': sample['segmented_question']}
+            if 'segmented_answers' in sample:
+                cleaned_sample['segmented_answers'] = sample['segmented_answers']
+            batch_raw_data.append(cleaned_sample)
+
+        batch_data = {'raw_data': batch_raw_data,
                       'question_token_ids': [],
                       'pos_questions': [],
                       'pos_freq_questions': [],
@@ -314,30 +350,38 @@ class Dataset(object):
                       'passage_para_match_socre': [],
                       'doc_ids': [],    # doc 的位置编码，所在下标
 
+                      # 距离特征
+                      'para_count_based_cos_distance': [],
+                      'para_levenshtein_distance': [],
+                      'para_fuzzy_matching_ratio': [],
+                      'para_fuzzy_matching_partial_ratio': [],
+                      'para_fuzzy_matching_token_sort_ratio': [],
+                      'para_fuzzy_matching_token_set_ratio': [],
+
                       'start_ids': [],
                       'end_ids': [],
                       'is_selected': [],
                       'match_scores': []}
 
-        max_passage_num = max([len(sample['documents']) for sample in batch_data['raw_data']])
+        batch_samples = [data[i] for i in indices]
+
+        max_passage_num = max([len(sample['documents']) for sample in batch_samples])
         max_passage_num = min(self.max_p_num, max_passage_num)
         # 增加信息,求最大答案数
         if not is_testing:
-            max_ans_num = max([len(sample['answer_labels']) for sample in batch_data['raw_data']])
+            max_ans_num = max([len(sample['answer_labels']) for sample in batch_samples])
         else:
             max_ans_num = 1
 
-        for sidx, sample in enumerate(batch_data['raw_data']):
+        for sidx, sample in enumerate(batch_samples):
             for pidx in range(max_passage_num):
                 if pidx < len(sample['documents']):
                     batch_data['question_token_ids'].append(sample['question_token_ids'])
                     batch_data['question_length'].append(len(sample['question_token_ids']))
                     # question 分类信息
-                    batch_data['question_rough_cls'].append(
-                        [self.rough_cls_dict[sample['question_type']]] * len(sample['question_token_ids']))
+                    batch_data['question_rough_cls'].append([self.rough_cls_dict[sample['question_type']]] * len(sample['question_token_ids']))
                     question_str = ''.join(sample['segmented_question'])
-                    batch_data['question_fine_cls'].append(
-                        [self.fine_cls.get_classify_label(question_str)[0]] * len(sample['question_token_ids']))
+                    batch_data['question_fine_cls'].append([self.fine_cls.get_classify_label(question_str)[0]] * len(sample['question_token_ids']))
 
                     passage_token_ids = sample['documents'][pidx]['passage_token_ids']
                     batch_data['passage_token_ids'].append(passage_token_ids)
@@ -349,8 +393,38 @@ class Dataset(object):
                     batch_data['pos_freq_passages'].append([self.pos_freq_dict[pos_str] for pos_str in sample['documents'][pidx]['pos_passage']])
                     batch_data['keyword_passages'].append(sample['documents'][pidx]['keyword_passage'])
                     batch_data['wiq_feature'].append(sample['documents'][pidx]['passage_word_in_question'])
-                    batch_data['passage_para_match_socre'].append(sample['documents'][pidx]['passage_para_match_socre'])
                     batch_data['doc_ids'].append([pidx] * len(passage_token_ids))
+
+                    # 1. paragraph 和 question 的 max_f1 * bleu
+                    para_match_socre = []
+                    # 2. count-based cos-distance
+                    para_count_based_cos_distance = []
+                    # 3. levenshtein_distance
+                    para_levenshtein_distance = []
+                    # 4. fuzzy_matching_ratio
+                    para_fuzzy_matching_ratio = []
+                    para_fuzzy_matching_partial_ratio = []
+                    para_fuzzy_matching_token_sort_ratio = []
+                    para_fuzzy_matching_token_set_ratio = []
+
+                    doc = sample['documents'][pidx]
+                    paras = self._split_list_by_specific_value(doc['segmented_passage'], ('<splitter>',))
+                    for para_i, para in enumerate(paras):
+                        para_match_socre.extend([doc['paragraph_match_score'][para_i]] * len(para) + [0])
+                        para_count_based_cos_distance.extend([doc['para_count_based_cos_distance'][para_i]] * len(para) + [0])
+                        para_levenshtein_distance.extend([doc['para_levenshtein_distance'][para_i]] * len(para) + [0])
+                        para_fuzzy_matching_ratio.extend([doc['para_fuzzy_matching_ratio'][para_i]] * len(para) + [0])
+                        para_fuzzy_matching_partial_ratio.extend([doc['para_fuzzy_matching_partial_ratio'][para_i]] * len(para) + [0])
+                        para_fuzzy_matching_token_sort_ratio.extend([doc['para_fuzzy_matching_token_sort_ratio'][para_i]] * len(para) + [0])
+                        para_fuzzy_matching_token_set_ratio.extend([doc['para_fuzzy_matching_token_set_ratio'][para_i]] * len(para) + [0])
+
+                    batch_data['passage_para_match_socre'].append(para_match_socre[:-1])
+                    batch_data['para_count_based_cos_distance'].append(para_count_based_cos_distance[:-1])
+                    batch_data['para_levenshtein_distance'].append(para_levenshtein_distance[:-1])
+                    batch_data['para_fuzzy_matching_ratio'].append(para_fuzzy_matching_ratio[:-1])
+                    batch_data['para_fuzzy_matching_partial_ratio'].append(para_fuzzy_matching_partial_ratio[:-1])
+                    batch_data['para_fuzzy_matching_token_sort_ratio'].append(para_fuzzy_matching_token_sort_ratio[:-1])
+                    batch_data['para_fuzzy_matching_token_set_ratio'].append(para_fuzzy_matching_token_set_ratio[:-1])
 
                     if not is_testing:
                         batch_data['is_selected'].append(
@@ -372,15 +446,22 @@ class Dataset(object):
                     batch_data['pos_freq_passages'].append([])
                     batch_data['keyword_passages'].append([])
                     batch_data['wiq_feature'].append([])
-                    batch_data['passage_para_match_socre'].append([])
                     batch_data['doc_ids'].append([])
+
+                    batch_data['passage_para_match_socre'].append([])
+                    batch_data['para_count_based_cos_distance'].append([])
+                    batch_data['para_levenshtein_distance'].append([])
+                    batch_data['para_fuzzy_matching_ratio'].append([])
+                    batch_data['para_fuzzy_matching_partial_ratio'].append([])
+                    batch_data['para_fuzzy_matching_token_sort_ratio'].append([])
+                    batch_data['para_fuzzy_matching_token_set_ratio'].append([])
                     batch_data['is_selected'].append(0)
 
         batch_data, padded_p_len, padded_q_len = self._dynamic_padding(batch_data, pad_id)
 
         # 增加信息,修改
         if not is_testing:
-            for sample in batch_data['raw_data']:
+            for sample in batch_samples:
                 start_ids = []
                 end_ids = []
                 scores = []
@@ -417,9 +498,9 @@ class Dataset(object):
             (ids + [pad_id] * (pad_q_len - len(ids)))[: pad_q_len] for ids in batch_data['question_token_ids']]
         # 增加信息
         batch_data['pos_questions'] = [
-            (pos + [-1] * (pad_q_len - len(pos)))[: pad_q_len] for pos in batch_data['pos_questions']]
+            (pos + [self.pos_meta_dict['other']] * (pad_q_len - len(pos)))[: pad_q_len] for pos in batch_data['pos_questions']]
         batch_data['keyword_questions'] = [
-            (key + [-1] * (pad_q_len - len(key)))[: pad_q_len] for key in batch_data['keyword_questions']]
+            (key + [0] * (pad_q_len - len(key)))[: pad_q_len] for key in batch_data['keyword_questions']]
         batch_data['pos_freq_questions'] = [
             (freq + [0.0] * (pad_q_len - len(freq)))[: pad_q_len] for freq in batch_data['pos_freq_questions']]
         batch_data['question_rough_cls'] = [
@@ -428,14 +509,22 @@ class Dataset(object):
             (fine + [-1] * (pad_q_len - len(fine)))[: pad_q_len] for fine in batch_data['question_fine_cls']]
 
         batch_data['pos_passages'] = [
-            (pos + [-1] * (pad_p_len - len(pos)))[: pad_p_len] for pos in batch_data['pos_passages']]
+            (pos + [self.pos_meta_dict['other']] * (pad_p_len - len(pos)))[: pad_p_len] for pos in batch_data['pos_passages']]
         batch_data['keyword_passages'] = [
-            (key + [-1] * (pad_p_len - len(key)))[: pad_p_len] for key in batch_data['keyword_passages']]
+            (key + [0] * (pad_p_len - len(key)))[: pad_p_len] for key in batch_data['keyword_passages']]
         batch_data['pos_freq_passages'] = [
             (freq + [0.0] * (pad_p_len - len(freq)))[: pad_p_len] for freq in batch_data['pos_freq_passages']]
 
-        batch_data['wiq_feature'] = [(wiq + [-1] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
+        batch_data['wiq_feature'] = [(wiq + [0] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
         batch_data['passage_para_match_socre'] = [(wiq + [0] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['passage_para_match_socre']]
+
+        batch_data['para_count_based_cos_distance'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_count_based_cos_distance']]
+        batch_data['para_levenshtein_distance'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_levenshtein_distance']]
+        batch_data['para_fuzzy_matching_ratio'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_fuzzy_matching_ratio']]
+        batch_data['para_fuzzy_matching_partial_ratio'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_fuzzy_matching_partial_ratio']]
+        batch_data['para_fuzzy_matching_token_sort_ratio'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_fuzzy_matching_token_sort_ratio']]
+        batch_data['para_fuzzy_matching_token_set_ratio'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_fuzzy_matching_token_set_ratio']]
+
         batch_data['doc_ids'] = [(did + [-1] * (pad_p_len - len(did)))[: pad_p_len] for did in batch_data['doc_ids']]
 
         return batch_data, pad_p_len, pad_q_len

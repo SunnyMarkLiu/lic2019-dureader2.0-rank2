@@ -20,7 +20,6 @@ from layers.match_layer import AttentionFlowMatchLayer
 from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
-from layers.encoder import transformer_encoder_block
 from layers.optimizer import AdamWOptimizer
 
 
@@ -141,6 +140,15 @@ class MultiAnsModel(object):
             self.logger.info('we use doc position encode feature!')
             self.p_doc_ids = tf.placeholder(tf.int32, [None, None], name='p_para_match_score')
 
+        if self.config.use_distance_features:
+            self.logger.info('we use para distance features')
+            self.p_para_count_based_cos_distance = tf.placeholder(tf.float32, [None, None], name='p_para_count_based_cos_distance')
+            self.p_para_levenshtein_distance = tf.placeholder(tf.float32, [None, None], name='p_para_levenshtein_distance')
+            self.p_para_fuzzy_matching_ratio = tf.placeholder(tf.float32, [None, None], name='p_para_fuzzy_matching_ratio')
+            self.p_para_fuzzy_matching_partial_ratio = tf.placeholder(tf.float32, [None, None], name='p_para_fuzzy_matching_partial_ratio')
+            self.p_para_fuzzy_matching_token_sort_ratio = tf.placeholder(tf.float32, [None, None], name='p_para_fuzzy_matching_token_sort_ratio')
+            self.p_para_fuzzy_matching_token_set_ratio = tf.placeholder(tf.float32, [None, None], name='p_para_fuzzy_matching_token_set_ratio')
+
         if self.config.ps_loss_weight: # 使用Passage selection Loss
             self.logger.info('we use the passage selection loss, weight is {}'.format(self.config.ps_loss_weight))
             self.gold_passage = tf.placeholder(tf.int32, [None], name='gold_passage') # shape=[batch*p_num]
@@ -198,11 +206,6 @@ class MultiAnsModel(object):
                 self.p_emb = tf.concat([self.p_emb, tf.one_hot(self.p_keyword, 2, axis=2)], axis=-1)
                 self.q_emb = tf.concat([self.q_emb, tf.one_hot(self.q_keyword, 2, axis=2)], axis=-1)
 
-            if self.config.use_para_match_score_feature:
-                self.p_emb = tf.concat([self.p_emb, tf.expand_dims(self.p_para_match_score, axis=2)], axis=-1)
-
-            if self.config.use_doc_ids_feature:
-                self.p_emb = tf.concat([self.p_emb, tf.one_hot(self.p_doc_ids, 5, axis=2)], axis=-1)
 
     def _encode(self):
         """
@@ -212,14 +215,6 @@ class MultiAnsModel(object):
             self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size)
         with tf.variable_scope('question_encoding'):
             self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size)
-        # with tf.variable_scope('passage_encoding'):
-        #     self.sep_p_encodes = transformer_encoder_block(inputs=self.p_emb, max_input_length=self.max_p_len,
-        #                                                    num_conv_layer=16, kernel_size=4, num_att_head=4,
-        #                                                    reuse=None)
-        # with tf.variable_scope('question_encoding'):
-        #     self.sep_q_encodes = transformer_encoder_block(inputs=self.q_emb, max_input_length=self.max_q_len,
-        #                                                    num_conv_layer=16, kernel_size=4, num_att_head=4,
-        #                                                    reuse=None)
 
         if self.use_dropout:
             self.sep_p_encodes = tf.nn.dropout(self.sep_p_encodes, self.dropout_keep_prob)
@@ -250,6 +245,21 @@ class MultiAnsModel(object):
             if self.use_dropout:
                 self.fuse_p_encodes = tf.nn.dropout(self.fuse_p_encodes, self.dropout_keep_prob)
 
+            if self.config.use_distance_features:
+                self.fuse_p_encodes = tf.concat([self.fuse_p_encodes,
+                                                 tf.expand_dims(self.p_para_count_based_cos_distance, axis=2),
+                                                 tf.expand_dims(self.p_para_levenshtein_distance, axis=2),
+                                                 tf.expand_dims(self.p_para_fuzzy_matching_ratio, axis=2),
+                                                 tf.expand_dims(self.p_para_fuzzy_matching_partial_ratio, axis=2),
+                                                 tf.expand_dims(self.p_para_fuzzy_matching_token_sort_ratio, axis=2),
+                                                 tf.expand_dims(self.p_para_fuzzy_matching_token_set_ratio, axis=2)], axis=-1)
+
+            if self.config.use_para_match_score_feature:
+                self.fuse_p_encodes = tf.concat([self.fuse_p_encodes, tf.expand_dims(self.p_para_match_score, axis=2)], axis=-1)
+
+            if self.config.use_doc_ids_feature:
+                self.fuse_p_encodes = tf.concat([self.fuse_p_encodes, tf.one_hot(self.p_doc_ids, 5, axis=2)], axis=-1)
+
     def _decode(self):
         """
         Employs Pointer Network to get the the probs of each position
@@ -261,7 +271,7 @@ class MultiAnsModel(object):
             batch_size = tf.shape(self.start_label)[0]
             concat_passage_encodes = tf.reshape(
                 self.fuse_p_encodes,
-                [batch_size, -1, 2 * self.hidden_size]
+                [batch_size, -1, 2 * self.hidden_size + 12]
             )
             no_dup_question_encodes = tf.reshape(
                 self.sep_q_encodes,
@@ -358,6 +368,14 @@ class MultiAnsModel(object):
         if self.config.use_doc_ids_feature:
             feed_dict[self.p_doc_ids] = batch['doc_ids']
 
+        if self.config.use_distance_features:
+            feed_dict[self.p_para_count_based_cos_distance] = batch['para_count_based_cos_distance']
+            feed_dict[self.p_para_levenshtein_distance] = batch['para_levenshtein_distance']
+            feed_dict[self.p_para_fuzzy_matching_ratio] = batch['para_fuzzy_matching_ratio']
+            feed_dict[self.p_para_fuzzy_matching_partial_ratio] = batch['para_fuzzy_matching_partial_ratio']
+            feed_dict[self.p_para_fuzzy_matching_token_sort_ratio] = batch['para_fuzzy_matching_token_sort_ratio']
+            feed_dict[self.p_para_fuzzy_matching_token_set_ratio] = batch['para_fuzzy_matching_token_set_ratio']
+
         if self.config.ps_loss_weight:
             feed_dict[self.gold_passage] = batch['is_selected'] # shape=[batch*p_num]
 
@@ -391,7 +409,7 @@ class MultiAnsModel(object):
 
         return 1.0 * total_loss / total_num
 
-    def train_and_evaluate_several_batchly(self, data, epochs, batch_size, evaluate_every_batch_cnt, save_dir, save_prefix,
+    def train_and_evaluate_several_batchly(self, data, epochs, batch_size, evaluate_cnt_in_one_epoch, save_dir, save_prefix,
               dropout_keep_prob=1.0):
         """
         Train the model with data，batch 的粒度评估 dev 性能
@@ -399,7 +417,7 @@ class MultiAnsModel(object):
             data: the BRCDataset class implemented in dataset.py
             epochs: number of training epochs
             batch_size: train batch size
-            evaluate_every_batch_cnt: evaluate every batch count that training processed
+            evaluate_cnt_in_one_epoch: evaluate count in one epoch that training processed
             save_dir: the directory to save the model
             save_prefix: the prefix indicating the model type
             dropout_keep_prob: float value indicating dropout keep probability
@@ -407,7 +425,6 @@ class MultiAnsModel(object):
         pad_id = self.vocab.get_id(self.vocab.pad_token)
         max_rouge_l = 0
 
-        processed_batch_cnt = 0     # 记录 train 处理的 batch 数
         for epoch in range(1, epochs + 1):
             self.logger.info('Training the model for epoch {}'.format(epoch))
             total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('train') % batch_size != 0)
@@ -415,6 +432,8 @@ class MultiAnsModel(object):
 
             # training for one epoch
             epoch_sample_num, epoch_total_loss = 0, 0
+            processed_batch_cnt = 0  # 记录一个 epoch 中 train 处理的 batch 数
+            evaluate_batch_cnt_threshold = total_batch_count // (evaluate_cnt_in_one_epoch + 1) + 1
 
             tqdm_batch_iterator = tqdm(train_batches, total=total_batch_count)
             for bitx, batch in enumerate(tqdm_batch_iterator):
@@ -435,11 +454,13 @@ class MultiAnsModel(object):
                 processed_batch_cnt += 1
 
                 # 每处理 evaluate_every_batch_cnt 数的 batch，进行评估
-                if evaluate_every_batch_cnt > 0 and processed_batch_cnt % evaluate_every_batch_cnt == 0:
-                    self.logger.info('Evaluating the model after processed {} batches'.format(processed_batch_cnt))
+                if processed_batch_cnt == evaluate_batch_cnt_threshold:
+                    self.logger.info('Evaluating the model after processed {} batches in one epoch'.format(processed_batch_cnt))
+                    processed_batch_cnt = 0
                     if data.dev_set is not None:
                         eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
-                        total_batch_count = data.get_data_length('dev') // batch_size + int(data.get_data_length('dev') % batch_size != 0)
+                        total_batch_count = data.get_data_length('dev') // batch_size + int(
+                            data.get_data_length('dev') % batch_size != 0)
                         eval_loss, bleu_rouge = self.evaluate(total_batch_count, eval_batches)
                         self.logger.info('Dev eval loss {}'.format(eval_loss))
                         self.logger.info('Dev eval result: {}'.format(bleu_rouge))
