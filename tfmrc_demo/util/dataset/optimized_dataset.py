@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import itertools
 from util.fine_classify import FineClassify
+from random import randint
 
 
 class Dataset(object):
@@ -113,6 +114,7 @@ class Dataset(object):
                 self.bin_cut_train_sets[answer_bin].append(sample)
 
             self.min_bin_data_size = min([len(bin_set) for bin_set in self.bin_cut_train_sets])
+            self.bin_set_count = np.array([len(s) for s in self.bin_cut_train_sets])
             self.train_set.clear()  # save memory
             self.logger.info('bincut done.')
         else:
@@ -239,6 +241,29 @@ class Dataset(object):
                 for doc in sample['documents']:
                     doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
 
+    def get_data_length(self, set_name):
+        if set_name == 'train':
+            return sum([len(bin_set) for bin_set in self.bin_cut_train_sets])
+        elif set_name == 'dev':
+            return len(self.dev_set)
+        elif set_name == 'test':
+            return len(self.test_set)
+        else:
+            raise NotImplementedError('No data set named as {}'.format(set_name))
+
+    def get_real_batch_size(self, batch_size, set_name):
+        """ 获取实际的batch_size大小 """
+        if set_name == 'train':
+            bin_batch_size = batch_size // self.train_answer_len_cut_bins
+            real_batch_size = bin_batch_size * self.train_answer_len_cut_bins
+            return real_batch_size
+        elif set_name == 'dev':
+            return batch_size
+        elif set_name == 'test':
+            return batch_size
+        else:
+            raise NotImplementedError('No data set named as {}'.format(set_name))
+
     def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True):
         """
         Generate data batches for a specific dataset (train/dev/test)
@@ -260,18 +285,39 @@ class Dataset(object):
             bin_left_idx = [0] * self.train_answer_len_cut_bins
             bin_batch_size = batch_size // self.train_answer_len_cut_bins
             # 实际训练的 batch size 大小
-            true_batch_size = bin_batch_size * self.train_answer_len_cut_bins
+            real_batch_size = bin_batch_size * self.train_answer_len_cut_bins
             for batch_start in np.arange(0, data_size, bin_batch_size):
                 # 从每个 bin_set 中均衡采样数据
                 batch_set = []
+                should_concat = False
                 for bin_i, bin_set in enumerate(self.bin_cut_train_sets):
-                    batch_set += bin_set[batch_start: batch_start + bin_batch_size]
-                    bin_left_idx[bin_i] = batch_start + bin_batch_size
-                yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+                    batch_binset = bin_set[batch_start: batch_start + bin_batch_size]
+                    if len(batch_binset) < bin_batch_size:
+                        should_concat = True
+                        break
+                    batch_set += batch_binset
+                if not should_concat:
+                    for bin_i, bin_set in enumerate(self.bin_cut_train_sets):
+                        bin_left_idx[bin_i] = batch_start + bin_batch_size
+                    yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+                else:
+                    break
 
-            # 剩下的bin的样本进行拼接
+            # 剩下的bin的样本进行拼接，同时将数目最小的bin进行适当的数据上采样
+            bin_left_cnts = list(self.bin_set_count - np.array(bin_left_idx))
+            least_bin_cnt = min(bin_left_cnts)
+            least_bin_idx = bin_left_cnts.index(least_bin_cnt)
+            del bin_left_cnts[least_bin_idx]
+            second_least_bin_cnt = min(bin_left_cnts)
+            # least_bin_idx 的 bin 上采样的数目 upsample_cnt
+            upsample_cnt = second_least_bin_cnt - least_bin_cnt
+
             left_set = []
             for idx, bin_set in enumerate(self.bin_cut_train_sets):
+                if idx == least_bin_idx:
+                    sample_idxs = [randint(0, self.bin_set_count[idx]) for _ in range(0, upsample_cnt)]
+                    upsample = map(bin_set.__getitem__, sample_idxs)
+                    bin_set += upsample
                 left_set += bin_set[bin_left_idx[idx]:]
 
             if len(left_set) > 0:
@@ -279,9 +325,9 @@ class Dataset(object):
                     np.random.shuffle(left_set)
 
                 left_data_size = len(left_set)
-                for batch_start in np.arange(0, left_data_size, batch_size):
-                    left_batch_set = left_set[batch_start: batch_start + batch_size]
-                    if len(left_batch_set) < true_batch_size:
+                for batch_start in np.arange(0, left_data_size, real_batch_size):
+                    left_batch_set = left_set[batch_start: batch_start + real_batch_size]
+                    if len(left_batch_set) < real_batch_size:
                         break
                     yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
 
@@ -323,12 +369,14 @@ class Dataset(object):
         for i in indices:
             sample = data[i]
             cleaned_sample = {'documents': [{'segmented_passage': doc['segmented_passage']} for doc in sample['documents']],
-                              'answer_labels': sample['answer_labels'],
                               'question_id': sample['question_id'],
                               'question_type': sample['question_type'],
                               'segmented_question': sample['segmented_question']}
             if 'segmented_answers' in sample:
                 cleaned_sample['segmented_answers'] = sample['segmented_answers']
+            if 'answer_labels' in sample:
+                cleaned_sample['answer_labels'] = sample['answer_labels']
+
             batch_raw_data.append(cleaned_sample)
 
         batch_data = {'raw_data': batch_raw_data,
@@ -528,13 +576,3 @@ class Dataset(object):
         batch_data['doc_ids'] = [(did + [-1] * (pad_p_len - len(did)))[: pad_p_len] for did in batch_data['doc_ids']]
 
         return batch_data, pad_p_len, pad_q_len
-
-    def get_data_length(self, set_name):
-        if set_name == 'train':
-            return sum([len(bin_set) for bin_set in self.bin_cut_train_sets])
-        elif set_name == 'dev':
-            return len(self.dev_set)
-        elif set_name == 'test':
-            return len(self.test_set)
-        else:
-            raise NotImplementedError('No data set named as {}'.format(set_name))

@@ -427,13 +427,22 @@ class MultiAnsModel(object):
 
         for epoch in range(1, epochs + 1):
             self.logger.info('Training the model for epoch {}'.format(epoch))
-            total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('train') % batch_size != 0)
+            real_batch_size = data.get_real_batch_size(batch_size=batch_size, set_name='train')
+            self.logger.info('real batch size after bin cut: {}'.format(real_batch_size))
+
+            # 对于少于 batch_size 的 batch 数据进行丢弃，所以此处不加 1
+            total_batch_count = data.get_data_length('train') // real_batch_size
             train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True)
 
             # training for one epoch
             epoch_sample_num, epoch_total_loss = 0, 0
             processed_batch_cnt = 0  # 记录一个 epoch 中 train 处理的 batch 数
-            evaluate_batch_cnt_threshold = total_batch_count // (evaluate_cnt_in_one_epoch + 1) + 1
+
+            evaluate_batch_cnt_threshold = []
+            gap = total_batch_count // (evaluate_cnt_in_one_epoch + 1)
+            for i in range(evaluate_cnt_in_one_epoch):
+                evaluate_batch_cnt_threshold.append(gap * (i + 1))
+            self.logger.info('will evaluate at batches: {}'.format(evaluate_batch_cnt_threshold))
 
             tqdm_batch_iterator = tqdm(train_batches, total=total_batch_count)
             for bitx, batch in enumerate(tqdm_batch_iterator):
@@ -454,9 +463,8 @@ class MultiAnsModel(object):
                 processed_batch_cnt += 1
 
                 # 每处理 evaluate_every_batch_cnt 数的 batch，进行评估
-                if processed_batch_cnt == evaluate_batch_cnt_threshold:
+                if processed_batch_cnt in evaluate_batch_cnt_threshold:
                     self.logger.info('Evaluating the model after processed {} batches in one epoch'.format(processed_batch_cnt))
-                    processed_batch_cnt = 0
                     if data.dev_set is not None:
                         eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
                         total_batch_count = data.get_data_length('dev') // batch_size + int(
@@ -545,9 +553,9 @@ class MultiAnsModel(object):
         if score_mode == 'baidu':
             pp_scores = (0.44, 0.23, 0.15, 0.09, 0.07)
         elif score_mode == 'zhidao':
-            pp_scores = (0.40, 0.22, 0.16, 0.12, 0.10)
+            pp_scores = (0.41365245374094933, 0.22551086082059532, 0.15545454545454546, 0.11234915526950925, 0.09303298471440065)
         elif score_mode == 'search':
-            pp_scores = (0.46, 0.24, 0.15, 0.08, 0.07)
+            pp_scores = (0.4494739641331627, 0.2413532335000914, 0.15594927451925475, 0.09319061944255157, 0.060032908404939585)
         elif score_mode == 'all':
             pp_scores = (0.43, 0.23, 0.16, 0.10, 0.09)
         elif score_mode == 'best':
