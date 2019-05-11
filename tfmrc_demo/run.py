@@ -83,7 +83,7 @@ def parse_args():
                                 help='whether to use the para match score feature')
     extra_settings.add_argument('--use_doc_ids_feature', type=str2bool, default=True,
                                 help='whether to use doc positional encode feature')
-    extra_settings.add_argument('--use_distance_features', default=True,
+    extra_settings.add_argument('--use_distance_features', type=str2bool, default=True,
                                 help='whether to use the para distance score feature')
 
     # 词表选择相关
@@ -117,8 +117,10 @@ def parse_args():
                                 help='learning rate')
     train_settings.add_argument('--weight_decay', type=float, default=0,
                                 help='weight decay')
-    train_settings.add_argument('--dropout_keep_prob', type=float, default=1,
-                                help='dropout keep rate')
+    train_settings.add_argument('--rnn_dropout_keep_prob', type=float, default=1,
+                                help='dropout keep rate used in rnn')
+    train_settings.add_argument('--fuse_dropout_keep_prob', type=float, default=1,
+                                help='dropout keep rate used in fuse layer')
     train_settings.add_argument('--batch_size', type=int, default=32,
                                 help='train batch size')
     train_settings.add_argument('--train_answer_len_cut_bins', type=int, default=6,
@@ -145,28 +147,28 @@ def parse_args():
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
-    path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/demo/search.train.json'],
-                               help='list of files that contain the preprocessed train data')
-    path_settings.add_argument('--dev_files', nargs='+',
-                               default=['../input/demo/search.dev.json'],
-                                        # '../input/demo/cleaned_18.search.dev.json'],
-                               help='list of files that contain the preprocessed dev data')
-    path_settings.add_argument('--test_files', nargs='+',
-                               default=['../input/demo/search.test1.json'],
-                               help='list of files that contain the preprocessed test data')
-
     # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/search.train.json'],
+    #                            default=['../input/demo/search.train.json'],
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
-    #                                # '../input/dureader_2.0_v5/final_mrc_dataset/devset/cleaned_18.search.dev.json'
-    #                                ],
+    #                            default=['../input/demo/search.dev.json'],
+    #                                     # '../input/demo/cleaned_18.search.dev.json'],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json'],
+    #                            default=['../input/demo/search.test1.json'],
     #                            help='list of files that contain the preprocessed test data')
+
+    path_settings.add_argument('--train_files', nargs='+',
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/search.train.json'],
+                               help='list of files that contain the preprocessed train data')
+    path_settings.add_argument('--dev_files', nargs='+',
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
+                                   # '../input/dureader_2.0_v5/final_mrc_dataset/devset/cleaned_18.search.dev.json'
+                                   ],
+                               help='list of files that contain the preprocessed dev data')
+    path_settings.add_argument('--test_files', nargs='+',
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json'],
+                               help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
                                help='the dir to store models')
@@ -280,8 +282,7 @@ def train(args):
         data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
         evaluate_cnt_in_one_epoch=args.evaluate_cnt_in_one_epoch,
         save_dir=os.path.join(args.model_dir, args.data_type),
-        save_prefix=args.desc + args.algo,
-        dropout_keep_prob=args.dropout_keep_prob
+        save_prefix=args.desc + args.algo
     )
     logger.info('Done with model training!')
 

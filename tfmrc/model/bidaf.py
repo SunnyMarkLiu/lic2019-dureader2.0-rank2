@@ -21,6 +21,8 @@ from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
 from layers.optimizer import AdamWOptimizer
+# from layers.self_attention import SelfAttention, TriLinear
+from layers.dropout import VariationalDropout
 
 
 class MultiAnsModel(object):
@@ -39,7 +41,6 @@ class MultiAnsModel(object):
         self.optim_type = args.optim
         self.learning_rate = args.learning_rate
         self.weight_decay = args.weight_decay
-        self.use_dropout = args.dropout_keep_prob < 1
 
         # 额外的设置
         self.config = args
@@ -55,8 +56,16 @@ class MultiAnsModel(object):
 
         # session info
         sess_config = tf.ConfigProto()
-        sess_config.gpu_options.allow_growth = False
+        sess_config.gpu_options.allow_growth = True
         self.sess = tf.Session(config=sess_config)
+
+        # dropout
+        # rnn encoder dropout
+        self.rnn_dropout_keep_prob = args.rnn_dropout_keep_prob
+        self.use_rnn_dropout = self.rnn_dropout_keep_prob < 1
+        # fuse 层的 dropout
+        self.fuse_dropout_keep_prob = args.fuse_dropout_keep_prob
+        self.use_fuse_dropout = self.fuse_dropout_keep_prob < 1
 
         self._build_graph()
 
@@ -91,7 +100,10 @@ class MultiAnsModel(object):
         self.q = tf.placeholder(tf.int32, [None, None], name='q')
         self.p_length = tf.placeholder(tf.int32, [None], name='p_len')
         self.q_length = tf.placeholder(tf.int32, [None], name='q_len')
-        self.dropout_keep_prob = tf.placeholder(tf.float32, name='dropout_keep_prop')
+        self.rnn_dropout_keep_prob_ph = tf.placeholder(tf.float32, name='rnn_dropout_keep_prob')
+        self.fuse_dropout_keep_prob_ph = tf.placeholder(tf.float32, name='fuse_dropout_keep_prob')
+
+        self.training = tf.placeholder(tf.bool, [])
 
         if self.config.use_multi_ans_loss: # Answer prediction with multi-answer
             self.logger.info('we use multi answer loss!')
@@ -177,8 +189,7 @@ class MultiAnsModel(object):
                             initializer=tf.constant_initializer(self.vocab.embedding_matrix[oov_end:],
                             dtype=tf.float32),trainable=False)
 
-            self.logger.warning('we have {} trainable tokens, we will train them in the model!'
-                                    .format(oov_end))
+            self.logger.warning('we have {} trainable tokens, we will train them in the model!'.format(oov_end))
 
             self.word_embeddings = tf.concat([self.trainable_word_mat, self.pretrained_word_mat], axis=0)
 
@@ -206,19 +217,23 @@ class MultiAnsModel(object):
                 self.p_emb = tf.concat([self.p_emb, tf.one_hot(self.p_keyword, 2, axis=2)], axis=-1)
                 self.q_emb = tf.concat([self.q_emb, tf.one_hot(self.q_keyword, 2, axis=2)], axis=-1)
 
-
     def _encode(self):
         """
         Employs two Bi-LSTMs to encode passage and question separately
         """
         with tf.variable_scope('passage_encoding'):
-            self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size)
-        with tf.variable_scope('question_encoding'):
-            self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size)
+            if self.use_rnn_dropout:
+                self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size, 1,
+                                            self.rnn_dropout_keep_prob)
+            else:
+                self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size, 1)
 
-        if self.use_dropout:
-            self.sep_p_encodes = tf.nn.dropout(self.sep_p_encodes, self.dropout_keep_prob)
-            self.sep_q_encodes = tf.nn.dropout(self.sep_q_encodes, self.dropout_keep_prob)
+        with tf.variable_scope('question_encoding'):
+            if self.use_rnn_dropout:
+                self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size, 1,
+                                            self.rnn_dropout_keep_prob)
+            else:
+                self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size, 1)
 
     def _match(self):
         """
@@ -230,20 +245,31 @@ class MultiAnsModel(object):
             match_layer = AttentionFlowMatchLayer(self.hidden_size)
         else:
             raise NotImplementedError('The algorithm {} is not implemented.'.format(self.algo))
-        self.match_p_encodes, _ = match_layer.match(self.sep_p_encodes, self.sep_q_encodes,
-                                                    self.p_length, self.q_length)
-        if self.use_dropout:
-            self.match_p_encodes = tf.nn.dropout(self.match_p_encodes, self.dropout_keep_prob)
+        self.match_p_encodes, _ = match_layer.match(self.sep_p_encodes, self.sep_q_encodes, self.p_length, self.q_length)
 
     def _fuse(self):
         """
         Employs Bi-LSTM again to fuse the context information after match layer
         """
         with tf.variable_scope('fusion'):
-            self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length,
-                                         self.hidden_size, layer_num=1)
-            if self.use_dropout:
-                self.fuse_p_encodes = tf.nn.dropout(self.fuse_p_encodes, self.dropout_keep_prob)
+            if self.use_rnn_dropout:
+                self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1,
+                                             self.rnn_dropout_keep_prob)
+            else:
+                self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
+
+            # rnn_fused, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
+            #
+            # self_attention = SelfAttention()
+            # c2c = self_attention(rnn_fused, self.p_length)
+            # self_attented_rep = tf.concat([c2c, c2c * rnn_fused], axis=len(c2c.shape) - 1)
+            # dense = tf.keras.layers.Dense(self.hidden_size * 2, use_bias=True, activation=tf.nn.relu)
+            # self_attented_rep = dense(self_attented_rep)
+            # self.fuse_p_encodes = rnn_fused + self_attented_rep
+
+            if self.use_fuse_dropout:
+                variational_dropout = VariationalDropout(self.fuse_dropout_keep_prob)
+                self.fuse_p_encodes = variational_dropout(self.fuse_p_encodes, self.training)
 
             if self.config.use_distance_features:
                 self.fuse_p_encodes = tf.concat([self.fuse_p_encodes,
@@ -271,15 +297,14 @@ class MultiAnsModel(object):
             batch_size = tf.shape(self.start_label)[0]
             concat_passage_encodes = tf.reshape(
                 self.fuse_p_encodes,
-                [batch_size, -1, 2 * self.hidden_size + 12]
+                [batch_size, -1, 2 * self.hidden_size + 6]
             )
             no_dup_question_encodes = tf.reshape(
                 self.sep_q_encodes,
                 [batch_size, -1, tf.shape(self.sep_q_encodes)[1], 2 * self.hidden_size]
             )[0:, 0, 0:, 0:]
         decoder = PointerNetDecoder(self.hidden_size)
-        self.start_probs, self.end_probs = decoder.decode(concat_passage_encodes,
-                                                          no_dup_question_encodes)
+        self.start_probs, self.end_probs = decoder.decode(concat_passage_encodes, no_dup_question_encodes)
 
     def _compute_loss(self):
         """
@@ -381,12 +406,11 @@ class MultiAnsModel(object):
 
         return feed_dict
 
-    def _train_epoch(self, total_batch_count, train_batches, dropout_keep_prob):
+    def _train_epoch(self, total_batch_count, train_batches):
         """
         Trains the model for a single epoch.
         Args:
             train_batches: iterable batch data for training
-            dropout_keep_prob: float value indicating dropout keep probability
         """
         total_num, total_loss = 0, 0
 
@@ -396,7 +420,9 @@ class MultiAnsModel(object):
                          self.q: batch['question_token_ids'],
                          self.p_length: batch['passage_length'],
                          self.q_length: batch['question_length'],
-                         self.dropout_keep_prob: dropout_keep_prob}
+                         self.rnn_dropout_keep_prob_ph: self.rnn_dropout_keep_prob,
+                         self.fuse_dropout_keep_prob_ph: self.fuse_dropout_keep_prob,
+                         self.training: True}
 
             feed_dict = self._add_extra_data(feed_dict, batch)
 
@@ -409,8 +435,7 @@ class MultiAnsModel(object):
 
         return 1.0 * total_loss / total_num
 
-    def train_and_evaluate_several_batchly(self, data, epochs, batch_size, evaluate_cnt_in_one_epoch, save_dir, save_prefix,
-              dropout_keep_prob=1.0):
+    def train_and_evaluate_several_batchly(self, data, epochs, batch_size, evaluate_cnt_in_one_epoch, save_dir, save_prefix):
         """
         Train the model with data，batch 的粒度评估 dev 性能
         Args:
@@ -420,7 +445,6 @@ class MultiAnsModel(object):
             evaluate_cnt_in_one_epoch: evaluate count in one epoch that training processed
             save_dir: the directory to save the model
             save_prefix: the prefix indicating the model type
-            dropout_keep_prob: float value indicating dropout keep probability
         """
         pad_id = self.vocab.get_id(self.vocab.pad_token)
         max_rouge_l = 0
@@ -432,6 +456,9 @@ class MultiAnsModel(object):
 
             # 对于少于 batch_size 的 batch 数据进行丢弃，所以此处不加 1
             total_batch_count = data.get_data_length('train') // real_batch_size
+            if real_batch_size == batch_size:
+                # 没有bin的情况，由于没有丢弃最后一个batch，所以此处加1
+                total_batch_count += int(data.get_data_length('train') % real_batch_size != 0)
             train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True)
 
             # training for one epoch
@@ -450,7 +477,9 @@ class MultiAnsModel(object):
                              self.q: batch['question_token_ids'],
                              self.p_length: batch['passage_length'],
                              self.q_length: batch['question_length'],
-                             self.dropout_keep_prob: dropout_keep_prob}
+                             self.rnn_dropout_keep_prob_ph: self.rnn_dropout_keep_prob,
+                             self.fuse_dropout_keep_prob_ph: self.fuse_dropout_keep_prob,
+                             self.training: True}
                 feed_dict = self._add_extra_data(feed_dict, batch)
 
                 _, loss = self.sess.run([self.train_op, self.loss], feed_dict)
@@ -495,9 +524,7 @@ class MultiAnsModel(object):
             else:
                 self.logger.warning('No dev set is loaded for evaluation in the dataset!')
 
-
-    def train(self, data, epochs, batch_size, save_dir, save_prefix,
-              dropout_keep_prob=1.0, evaluate=True):
+    def train(self, data, epochs, batch_size, save_dir, save_prefix, evaluate=True):
         """
         Train the model with data
         Args:
@@ -506,7 +533,6 @@ class MultiAnsModel(object):
             batch_size:
             save_dir: the directory to save the model
             save_prefix: the prefix indicating the model type
-            dropout_keep_prob: float value indicating dropout keep probability
             evaluate: whether to evaluate the model on test set after each epoch
         """
         pad_id = self.vocab.get_id(self.vocab.pad_token)
@@ -515,7 +541,7 @@ class MultiAnsModel(object):
             self.logger.info('Training the model for epoch {}'.format(epoch))
             total_batch_count = data.get_data_length('train') // batch_size + int(data.get_data_length('train') % batch_size != 0)
             train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True)
-            train_loss = self._train_epoch(total_batch_count, train_batches, dropout_keep_prob)
+            train_loss = self._train_epoch(total_batch_count, train_batches)
             self.logger.info('Average train loss for epoch {} is {}'.format(epoch, train_loss))
 
             if evaluate:
@@ -570,7 +596,9 @@ class MultiAnsModel(object):
                          self.q: batch['question_token_ids'],
                          self.p_length: batch['passage_length'],
                          self.q_length: batch['question_length'],
-                         self.dropout_keep_prob: 1.0}
+                         self.rnn_dropout_keep_prob_ph: self.rnn_dropout_keep_prob,
+                         self.fuse_dropout_keep_prob_ph: self.fuse_dropout_keep_prob,
+                         self.training: False}
 
             feed_dict = self._add_extra_data(feed_dict, batch)
 

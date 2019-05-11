@@ -22,7 +22,7 @@ class Dataset(object):
                  max_p_len,
                  max_q_len,
                  max_a_len=None,
-                 train_answer_len_cut_bins=None,
+                 train_answer_len_cut_bins=-1,
                  train_files=[],
                  dev_files=[],
                  test_files=[],
@@ -198,10 +198,12 @@ class Dataset(object):
         Returns:
             a generator
         """
-        if set_name == 'train':
+        if set_name == 'train' and self.train_answer_len_cut_bins > 0:  # 存在 bin
             data_set = []
             for bin_set in self.bin_cut_train_sets:
                 data_set += bin_set
+        elif set_name == 'train' and self.train_answer_len_cut_bins <= 0:  # 不存在 bin
+            data_set = self.train_set
         elif set_name == 'dev':
             data_set = self.dev_set
         elif set_name == 'test':
@@ -225,13 +227,18 @@ class Dataset(object):
             use_oov2unk: 所有oov的词是否映射到 <unk>, 默认为 False
         """
         # 如果是train, 则丢弃segmented_passage字段
-        if self.bin_cut_train_sets:
+        if self.train_answer_len_cut_bins > 0:  # 存在 bin
             for bin_set in self.bin_cut_train_sets:
                 for sample in bin_set:
                     sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], use_oov2unk)
                     for doc in sample['documents']:
                         doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
                         doc['segmented_passage'] = []
+        elif self.train_set:
+            for sample in self.train_set:
+                sample['question_token_ids'] = vocab.convert_to_ids(sample['segmented_question'], use_oov2unk)
+                for doc in sample['documents']:
+                    doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
 
         for data_set in [self.dev_set, self.test_set]:
             if data_set is None:
@@ -242,8 +249,10 @@ class Dataset(object):
                     doc['passage_token_ids'] = vocab.convert_to_ids(doc['segmented_passage'], use_oov2unk)
 
     def get_data_length(self, set_name):
-        if set_name == 'train':
+        if set_name == 'train' and self.train_answer_len_cut_bins > 0:
             return sum([len(bin_set) for bin_set in self.bin_cut_train_sets])
+        elif set_name == 'train' and self.train_answer_len_cut_bins <= 0:
+            return len(self.train_set)
         elif set_name == 'dev':
             return len(self.dev_set)
         elif set_name == 'test':
@@ -253,13 +262,13 @@ class Dataset(object):
 
     def get_real_batch_size(self, batch_size, set_name):
         """ 获取实际的batch_size大小 """
-        if set_name == 'train':
+        if set_name == 'train' and self.train_answer_len_cut_bins > 0:
             bin_batch_size = batch_size // self.train_answer_len_cut_bins
             real_batch_size = bin_batch_size * self.train_answer_len_cut_bins
             return real_batch_size
-        elif set_name == 'dev':
+        elif set_name == 'train' and self.train_answer_len_cut_bins <= 0:
             return batch_size
-        elif set_name == 'test':
+        elif set_name == 'dev' or set_name == 'test':
             return batch_size
         else:
             raise NotImplementedError('No data set named as {}'.format(set_name))
@@ -275,7 +284,7 @@ class Dataset(object):
         Returns:
             a generator for all batches
         """
-        if set_name == 'train':
+        if set_name == 'train' and self.train_answer_len_cut_bins > 0:
             # 分别对每个 bin 的数据进行 shuffle 再进行均衡采样
             data_size = self.min_bin_data_size
             if shuffle:
@@ -330,29 +339,25 @@ class Dataset(object):
                     if len(left_batch_set) < real_batch_size:
                         break
                     yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
-
-        elif set_name == 'dev':
-            data_size = len(self.dev_set)
-            indices = np.arange(data_size)
-            if shuffle:
-                np.random.shuffle(indices)
-            for batch_start in np.arange(0, data_size, batch_size):
-                batch_indices = indices[batch_start: batch_start + batch_size]
-                yield self._one_mini_batch(self.dev_set, batch_indices, pad_id, is_testing=False)
-
-        elif set_name == 'test':
-            data_size = len(self.test_set)
-            indices = np.arange(data_size)
-            if shuffle:
-                np.random.shuffle(indices)
-            for batch_start in np.arange(0, data_size, batch_size):
-                batch_indices = indices[batch_start: batch_start + batch_size]
-                yield self._one_mini_batch(self.test_set, batch_indices, pad_id, is_testing=True)
-
         else:
-            raise NotImplementedError('No data set named as {}'.format(set_name))
+            if set_name == 'train' and self.train_answer_len_cut_bins <= 0:
+                data_set = self.train_set
+            elif set_name == 'dev':
+                data_set = self.dev_set
+            elif set_name == 'test':
+                data_set = self.test_set
+            else:
+                raise NotImplementedError('No data set named as {}'.format(set_name))
 
-    def _split_list_by_specific_value(sekf, iterable, splitters):
+            data_size = len(data_set)
+            indices = np.arange(data_size)
+            if shuffle:
+                np.random.shuffle(indices)
+            for batch_start in np.arange(0, data_size, batch_size):
+                batch_indices = indices[batch_start: batch_start + batch_size]
+                yield self._one_mini_batch(data_set, batch_indices, pad_id, is_testing=False)
+
+    def _split_list_by_specific_value(self, iterable, splitters):
         return [list(g) for k, g in itertools.groupby(iterable, lambda x: x in splitters) if not k]
 
     def _one_mini_batch(self, data, indices, pad_id, is_testing):
