@@ -21,7 +21,7 @@ from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
 from layers.optimizer import AdamWOptimizer
-# from layers.self_attention import SelfAttention, TriLinear
+from layers.self_attention import SelfAttention #, TriLinear
 from layers.dropout import VariationalDropout
 
 
@@ -259,7 +259,7 @@ class MultiAnsModel(object):
                 self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
 
             # rnn_fused, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
-            #
+
             # self_attention = SelfAttention()
             # c2c = self_attention(rnn_fused, self.p_length)
             # self_attented_rep = tf.concat([c2c, c2c * rnn_fused], axis=len(c2c.shape) - 1)
@@ -297,7 +297,7 @@ class MultiAnsModel(object):
             batch_size = tf.shape(self.start_label)[0]
             concat_passage_encodes = tf.reshape(
                 self.fuse_p_encodes,
-                [batch_size, -1, 2 * self.hidden_size + 6]
+                [batch_size, -1, 2 * self.hidden_size + 12]
             )
             no_dup_question_encodes = tf.reshape(
                 self.sep_q_encodes,

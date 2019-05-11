@@ -297,7 +297,7 @@ class MultiAnsModel(object):
             batch_size = tf.shape(self.start_label)[0]
             concat_passage_encodes = tf.reshape(
                 self.fuse_p_encodes,
-                [batch_size, -1, 2 * self.hidden_size + 6]
+                [batch_size, -1, 2 * self.hidden_size + 12]
             )
             no_dup_question_encodes = tf.reshape(
                 self.sep_q_encodes,
