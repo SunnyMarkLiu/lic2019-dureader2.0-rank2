@@ -546,9 +546,9 @@ class Dataset(object):
             (ids + [pad_id] * (pad_q_len - len(ids)))[: pad_q_len] for ids in batch_data['question_token_ids']]
         # 增加信息
         batch_data['pos_questions'] = [
-            (pos + [self.pos_meta_dict['other']] * (pad_q_len - len(pos)))[: pad_q_len] for pos in batch_data['pos_questions']]
+            (pos + [-1] * (pad_q_len - len(pos)))[: pad_q_len] for pos in batch_data['pos_questions']]
         batch_data['keyword_questions'] = [
-            (key + [0] * (pad_q_len - len(key)))[: pad_q_len] for key in batch_data['keyword_questions']]
+            (key + [-1] * (pad_q_len - len(key)))[: pad_q_len] for key in batch_data['keyword_questions']]
         batch_data['pos_freq_questions'] = [
             (freq + [0.0] * (pad_q_len - len(freq)))[: pad_q_len] for freq in batch_data['pos_freq_questions']]
         batch_data['question_rough_cls'] = [
@@ -557,13 +557,13 @@ class Dataset(object):
             (fine + [-1] * (pad_q_len - len(fine)))[: pad_q_len] for fine in batch_data['question_fine_cls']]
 
         batch_data['pos_passages'] = [
-            (pos + [self.pos_meta_dict['other']] * (pad_p_len - len(pos)))[: pad_p_len] for pos in batch_data['pos_passages']]
+            (pos + [-1] * (pad_p_len - len(pos)))[: pad_p_len] for pos in batch_data['pos_passages']]
         batch_data['keyword_passages'] = [
-            (key + [0] * (pad_p_len - len(key)))[: pad_p_len] for key in batch_data['keyword_passages']]
+            (key + [-1] * (pad_p_len - len(key)))[: pad_p_len] for key in batch_data['keyword_passages']]
         batch_data['pos_freq_passages'] = [
             (freq + [0.0] * (pad_p_len - len(freq)))[: pad_p_len] for freq in batch_data['pos_freq_passages']]
 
-        batch_data['wiq_feature'] = [(wiq + [0] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
+        batch_data['wiq_feature'] = [(wiq + [-1] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['wiq_feature']]
         batch_data['passage_para_match_socre'] = [(wiq + [0] * (pad_p_len - len(wiq)))[: pad_p_len] for wiq in batch_data['passage_para_match_socre']]
 
         batch_data['para_count_based_cos_distance'] = [(dist + [0] * (pad_p_len - len(dist)))[: pad_p_len] for dist in batch_data['para_count_based_cos_distance']]
