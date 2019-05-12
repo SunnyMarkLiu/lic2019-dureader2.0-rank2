@@ -159,15 +159,15 @@ def parse_args():
     #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/zhidao.train.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/search.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
                                    # '../input/dureader_2.0_v5/final_mrc_dataset/devset/cleaned_18.search.dev.json'
                                    ],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
@@ -273,6 +273,8 @@ def train(args):
     brc_data.convert_to_ids(vocab, args.use_oov2unk)
     logger.info('Initialize the model...')
     rc_model = MultiAnsModel(vocab, args)
+    # rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type),
+    #                  model_prefix=args.desc + args.algo)
     logger.info('Training the model...')
     # rc_model.train(brc_data, args.epochs, args.batch_size,
     #                save_dir=os.path.join(args.model_dir, args.data_type),

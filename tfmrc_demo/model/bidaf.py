@@ -21,7 +21,7 @@ from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
 from layers.optimizer import AdamWOptimizer
-# from layers.self_attention import SelfAttention, TriLinear
+from layers.self_attention import SelfAttention, TriLinear
 from layers.dropout import VariationalDropout
 
 
@@ -56,7 +56,7 @@ class MultiAnsModel(object):
 
         # session info
         sess_config = tf.ConfigProto()
-        sess_config.gpu_options.allow_growth = True
+        sess_config.gpu_options.allow_growth = False
         self.sess = tf.Session(config=sess_config)
 
         # dropout
@@ -252,20 +252,20 @@ class MultiAnsModel(object):
         Employs Bi-LSTM again to fuse the context information after match layer
         """
         with tf.variable_scope('fusion'):
-            if self.use_rnn_dropout:
-                self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1,
-                                             self.rnn_dropout_keep_prob)
-            else:
-                self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
+            # if self.use_rnn_dropout:
+            #     self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1,
+            #                                  self.rnn_dropout_keep_prob)
+            # else:
+            #     self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
 
-            # rnn_fused, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
-            #
-            # self_attention = SelfAttention()
-            # c2c = self_attention(rnn_fused, self.p_length)
-            # self_attented_rep = tf.concat([c2c, c2c * rnn_fused], axis=len(c2c.shape) - 1)
-            # dense = tf.keras.layers.Dense(self.hidden_size * 2, use_bias=True, activation=tf.nn.relu)
-            # self_attented_rep = dense(self_attented_rep)
-            # self.fuse_p_encodes = rnn_fused + self_attented_rep
+            rnn_fused, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
+
+            self_attention = SelfAttention(TriLinear(bias=True,name='self_attention_tri_linear'))
+            c2c = self_attention(rnn_fused, self.p_length)
+            self_attented_rep = tf.concat([c2c, c2c * rnn_fused], axis=len(c2c.shape) - 1)
+            dense = tf.keras.layers.Dense(self.hidden_size * 2, use_bias=True, activation=tf.nn.relu)
+            self_attented_rep = dense(self_attented_rep)
+            self.fuse_p_encodes = rnn_fused + self_attented_rep
 
             if self.use_fuse_dropout:
                 variational_dropout = VariationalDropout(self.fuse_dropout_keep_prob)
@@ -349,6 +349,10 @@ class MultiAnsModel(object):
         else:
             raise NotImplementedError('Unsupported optimizer: {}'.format(self.optim_type))
         self.train_op = self.optimizer.minimize(self.loss)
+        # grads, variables = zip(*self.optimizer.compute_gradients(self.loss))
+        # grads, global_norm = tf.clip_by_global_norm(grads, 5)
+        # self.train_op = self.optimizer.apply_gradients(zip(grads, variables))
+
 
     def _add_extra_data(self, feed_dict, batch):
         if self.config.use_multi_ans_loss:

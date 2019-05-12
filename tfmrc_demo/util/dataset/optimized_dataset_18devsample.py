@@ -26,6 +26,7 @@ class Dataset(object):
                  train_files=[],
                  dev_files=[],
                  test_files=[],
+                 cleaned18_dev_files=[],
                  badcase_sample_log_file=None):
         self.logger = logging.getLogger("brc")
         self.max_p_num = max_p_num
@@ -70,11 +71,15 @@ class Dataset(object):
         if self.badcase_sample_log_file:
             self.badcase_dumper = open(badcase_sample_log_file, 'w')
 
-        self.train_set, self.dev_set, self.test_set = [], [], []
+        self.train_set, self.cleaned18_dev_set, self.dev_set, self.test_set = [], [], [], []
         if train_files:
             for train_file in train_files:
                 self.train_set += self._load_dataset(train_file, train=True)
             self.logger.info('Train set size: {} questions.'.format(len(self.train_set)))
+
+        if cleaned18_dev_files:
+            for train_file in cleaned18_dev_files:
+                self.cleaned18_dev_set += self._load_dataset(train_file, train=True)
 
         if dev_files:
             for dev_file in dev_files:
@@ -91,7 +96,7 @@ class Dataset(object):
 
         # 对于训练集，统计训练集的答案长度分布
         if self.train_set and self.train_answer_len_cut_bins > 0:
-            self.logger.info('cut the mean answer length with same frequence')
+            self.logger.info('answer length bin cut for training set...')
             # 统计该样本答案的长度
             train_answer_lens = []
             for sample in self.train_set:
@@ -114,9 +119,39 @@ class Dataset(object):
                 self.bin_cut_train_sets[answer_bin].append(sample)
 
             self.min_bin_data_size = min([len(bin_set) for bin_set in self.bin_cut_train_sets])
-            self.bin_set_count = np.array([len(s) for s in self.bin_cut_train_sets])
+            self.train_bin_set_count = [len(s) for s in self.bin_cut_train_sets]
             self.train_set.clear()  # save memory
-            self.logger.info('bincut done.')
+            self.logger.info('trainset bin length: {}'.format(self.train_bin_set_count))
+            self.logger.info('trainset bincut done.')
+
+            # ----------------- bin cut for cleaned18 dev set -----------------
+            # 1. 对 dev 的 answer 平均长度分布进行过滤
+            self.logger.info('answer length bin cut for cleaned18 dev set...')
+            cleaned18_dev_set = []
+            cleaned18_dev_answer_lens = []
+            for sample in self.cleaned18_dev_set:
+                ans_lens = [len(ans) for ans in sample['segmented_answers']]
+                mean_ans_len = sum(ans_lens) / len(ans_lens)
+                if mean_ans_len > self.max_a_len:
+                    continue
+                cleaned18_dev_answer_lens.append(mean_ans_len)
+                sample['mean_answer_len'] = mean_ans_len
+                cleaned18_dev_set.append(sample)
+
+            # 2. 对 dev 的 answer 长度进行 bin 划分，和train的bin划分大致一致
+            sample_belong_bins = same_freq_bincut(pd.Series(cleaned18_dev_answer_lens), self.train_answer_len_cut_bins)
+
+            # 按照不同的 bin 进行划分 cleaned18 dev
+            self.bin_cut_18dev_sets = [[] for _ in range(self.train_answer_len_cut_bins)]
+            for i, sample in enumerate(cleaned18_dev_set):
+                answer_bin = sample_belong_bins[i]
+                self.bin_cut_18dev_sets[answer_bin].append(sample)
+
+            self.cleaned18_dev_bin_set_count = [len(s) for s in self.bin_cut_18dev_sets]
+            del cleaned18_dev_set   # save memory
+            self.logger.info('cleaned18 devset bin length: {}'.format(self.cleaned18_dev_bin_set_count))
+            self.logger.info('cleaned18 devset bincut done.')
+
         else:
             self.bin_cut_train_sets = []    # dev/test
 
@@ -308,25 +343,50 @@ class Dataset(object):
                 if not should_concat:
                     for bin_i, bin_set in enumerate(self.bin_cut_train_sets):
                         bin_left_idx[bin_i] = batch_start + bin_batch_size
-                    yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+                    # yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+                    yield batch_set
                 else:
                     break
 
-            # 剩下的bin的样本进行拼接，同时将数目最小的bin进行适当的数据上采样
-            bin_left_cnts = list(self.bin_set_count - np.array(bin_left_idx))
-            least_bin_cnt = min(bin_left_cnts)
-            least_bin_idx = bin_left_cnts.index(least_bin_cnt)
-            del bin_left_cnts[least_bin_idx]
-            second_least_bin_cnt = min(bin_left_cnts)
-            # least_bin_idx 的 bin 上采样的数目 upsample_cnt
-            upsample_cnt = second_least_bin_cnt - least_bin_cnt
+            # 剩下的bin的样本通过cleaned18 dev bin 进行采样最后拼接，同时将数目最小的bin进行适当的数据上采样
+            train_left_bin_set = [bin_set[bin_left_idx[bin_i]:] for bin_i, bin_set in enumerate(self.bin_cut_train_sets)]
+            self.logger.info([len(s) for s in train_left_bin_set])
 
+            bin_left_cnts = np.array([len(s) for s in train_left_bin_set])
+            # 剩下的bin count 加上所有的 18dev 的bin数据，用于得到最小值
+            plus_18dev_bin_cnts = bin_left_cnts + np.array(self.cleaned18_dev_bin_set_count)
+            cleaned_18dev_sample_cnts = min(plus_18dev_bin_cnts) - bin_left_cnts
+            # 对 bin 进行遍历，每个bin采样的样本数由 cleaned_18dev_sample_cnts 决定
+            for bin_i, cleaned_18_bin_set in enumerate(self.bin_cut_18dev_sets):
+                should_sample_cnt = cleaned_18dev_sample_cnts[bin_i]
+                if should_sample_cnt < 0:
+                    continue
+
+                sample_idxs = [randint(0, self.cleaned18_dev_bin_set_count[bin_i]) for _ in range(0, should_sample_cnt)]
+                sampled_18dev_bin_set = map(self.bin_cut_18dev_sets.__getitem__, sample_idxs)
+                train_left_bin_set[bin_i] += sampled_18dev_bin_set
+
+            for batch_start in np.arange(0, data_size, bin_batch_size):
+                # 从每个 bin_set 中均衡采样数据
+                batch_set = []
+                should_concat = False
+                for bin_i, bin_set in enumerate(train_left_bin_set):
+                    batch_binset = bin_set[batch_start: batch_start + bin_batch_size]
+                    if len(batch_binset) < bin_batch_size:
+                        should_concat = True
+                        break
+                    batch_set += batch_binset
+                if not should_concat:
+                    for bin_i, bin_set in enumerate(train_left_bin_set):
+                        bin_left_idx[bin_i] = batch_start + bin_batch_size
+                    # yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+                    yield batch_set
+                else:
+                    break
+
+            # 剩下的直接拼接，进行 real_batch_size 的 yield
             left_set = []
-            for idx, bin_set in enumerate(self.bin_cut_train_sets):
-                if idx == least_bin_idx:
-                    sample_idxs = [randint(0, self.bin_set_count[idx]) for _ in range(0, upsample_cnt)]
-                    upsample = map(bin_set.__getitem__, sample_idxs)
-                    bin_set += upsample
+            for idx, bin_set in enumerate(train_left_bin_set):
                 left_set += bin_set[bin_left_idx[idx]:]
 
             if len(left_set) > 0:
@@ -338,17 +398,15 @@ class Dataset(object):
                     left_batch_set = left_set[batch_start: batch_start + real_batch_size]
                     if len(left_batch_set) < real_batch_size:
                         break
-                    yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
+                    # yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
+                    yield left_batch_set
         else:
             if set_name == 'train' and self.train_answer_len_cut_bins <= 0:
                 data_set = self.train_set
-                is_testing = False
             elif set_name == 'dev':
                 data_set = self.dev_set
-                is_testing = True
             elif set_name == 'test':
                 data_set = self.test_set
-                is_testing = True
             else:
                 raise NotImplementedError('No data set named as {}'.format(set_name))
 
@@ -358,7 +416,8 @@ class Dataset(object):
                 np.random.shuffle(indices)
             for batch_start in np.arange(0, data_size, batch_size):
                 batch_indices = indices[batch_start: batch_start + batch_size]
-                yield self._one_mini_batch(data_set, batch_indices, pad_id, is_testing=is_testing)
+                # yield self._one_mini_batch(data_set, batch_indices, pad_id, is_testing=False)
+                yield data_set
 
     def _split_list_by_specific_value(self, iterable, splitters):
         return [list(g) for k, g in itertools.groupby(iterable, lambda x: x in splitters) if not k]

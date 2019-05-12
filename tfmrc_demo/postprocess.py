@@ -7,7 +7,6 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/5/4 22:51
 """
-import re
 import sys
 import json
 import pandas as pd
@@ -114,4 +113,6 @@ if __name__ == '__main__':
         if 'segmented_answers' in sample:
             del sample['segmented_answers']
 
+        del sample['start_prob']
+        del sample['end_prob']
         print(json.dumps(sample, ensure_ascii=False))

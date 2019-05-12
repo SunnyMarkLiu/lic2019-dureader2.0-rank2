@@ -25,19 +25,18 @@ class Layer(object):
 
 
 class SelfAttention(Layer):
-    def __init__(self, name="self_attention"):
+    def __init__(self, similarity_function, name="self_attention"):
         super(SelfAttention, self).__init__(name)
-        # self.similarity_function = similarity_function
+        self.similarity_function = similarity_function
 
     def __call__(self, query, query_len):
-        # sim_mat = self.similarity_function(query, query)
-        sim_mat = tf.matmul(query, query, transpose_b=True)
+        sim_mat = self.similarity_function(query, query)
         sim_mat += tf.expand_dims(tf.eye(tf.shape(query)[1]) * VERY_NEGATIVE_NUMBER, 0)
         mask = tf.expand_dims(tf.sequence_mask(query_len, tf.shape(query)[1], dtype=tf.float32), axis=1)
         sim_mat = sim_mat + (1. - mask) * VERY_NEGATIVE_NUMBER
         bias = tf.exp(tf.get_variable("no-alignment-bias", initializer=tf.constant(-1.0, dtype=tf.float32)))
         sim_mat = tf.exp(sim_mat)
-        sim_prob = sim_mat / (tf.reduce_sum(sim_mat, axis=2, keep_dims=True) + bias)
+        sim_prob = sim_mat / (tf.reduce_sum(sim_mat, axis=2, keepdims=True) + bias)
 
         return tf.matmul(sim_prob, query)
 

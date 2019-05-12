@@ -342,10 +342,13 @@ class Dataset(object):
         else:
             if set_name == 'train' and self.train_answer_len_cut_bins <= 0:
                 data_set = self.train_set
+                is_testing = False
             elif set_name == 'dev':
                 data_set = self.dev_set
+                is_testing = True
             elif set_name == 'test':
                 data_set = self.test_set
+                is_testing = True
             else:
                 raise NotImplementedError('No data set named as {}'.format(set_name))
 
@@ -355,7 +358,7 @@ class Dataset(object):
                 np.random.shuffle(indices)
             for batch_start in np.arange(0, data_size, batch_size):
                 batch_indices = indices[batch_start: batch_start + batch_size]
-                yield self._one_mini_batch(data_set, batch_indices, pad_id, is_testing=False)
+                yield self._one_mini_batch(data_set, batch_indices, pad_id, is_testing=is_testing)
 
     def _split_list_by_specific_value(self, iterable, splitters):
         return [list(g) for k, g in itertools.groupby(iterable, lambda x: x in splitters) if not k]
