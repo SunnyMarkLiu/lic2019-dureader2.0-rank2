@@ -8,9 +8,9 @@ nohup python run.py --prepare --create_vocab true --data_type zhidao \
 
 ## train
 ```bash
-nohup python run.py --train --gpu 3 --data_type search --desc 'pure_v5' --algo RNET \
+nohup python run.py --train --gpu 2 --data_type search --desc 'pure_v5' --algo RNET \
                     --max_a_len 300 --train_answer_len_cut_bins 6 --batch_size 32 \
-                    --rnn_dropout_keep_prob 1 --fuse_dropout_keep_prob 1 --weight_decay 0 \
+                    --rnn_dropout_keep_prob 0.9 --fuse_dropout_keep_prob 0.9 --weight_decay 0.00003 \
                     --epochs 20 \
                     > search.train.log 2>&1 &
 

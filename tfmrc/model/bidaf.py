@@ -259,6 +259,9 @@ class MultiAnsModel(object):
 
             # self.fuse_p_encodes, _ = rnn('bi-gru', self.match_p_encodes, self.p_length, self.hidden_size, 1, self.rnn_dropout_keep_prob)
 
+            # 去掉 fuse 的rnn
+            self.fuse_p_encodes = self.match_p_encodes
+
             if self.use_fuse_dropout:
                 variational_dropout = VariationalDropout(self.fuse_dropout_keep_prob)
                 self.fuse_p_encodes = variational_dropout(self.fuse_p_encodes, self.training)
