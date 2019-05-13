@@ -14,15 +14,15 @@ import numpy as np
 import tensorflow as tf
 from util.metric import compute_bleu_rouge
 from util.metric import normalize
-from layers.basic_rnn import rnn
 from layers.match_layer import MatchLSTMLayer
 from layers.match_layer import AttentionFlowMatchLayer
+from layers.match_layer import RnetMatchLayer
 from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
 from layers.optimizer import AdamWOptimizer
-from layers.self_attention import SelfAttention #, TriLinear
-from layers.dropout import VariationalDropout
+from layers.rnet_modules.layers import VariationalDropout
+from layers.rnet_modules.encoder import MultiHeadSelfAttentionEncoder
 
 
 class MultiAnsModel(object):
@@ -221,19 +221,14 @@ class MultiAnsModel(object):
         """
         Employs two Bi-LSTMs to encode passage and question separately
         """
-        with tf.variable_scope('passage_encoding'):
-            if self.use_rnn_dropout:
-                self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size, 1,
-                                            self.rnn_dropout_keep_prob)
-            else:
-                self.sep_p_encodes, _ = rnn('bi-lstm', self.p_emb, self.p_length, self.hidden_size, 1)
-
-        with tf.variable_scope('question_encoding'):
-            if self.use_rnn_dropout:
-                self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size, 1,
-                                            self.rnn_dropout_keep_prob)
-            else:
-                self.sep_q_encodes, _ = rnn('bi-lstm', self.q_emb, self.q_length, self.hidden_size, 1)
+        # 注意 hidden_size 能被 heads 整除
+        context_encoder = MultiHeadSelfAttentionEncoder(heads=2,
+                                                        input_hidden_size=self.hidden_size,
+                                                        out_rnn_hidden_size=self.hidden_size,
+                                                        training=self.training,
+                                                        keep_prob=self.rnn_dropout_keep_prob)
+        self.sep_p_encodes = context_encoder(self.p_emb, self.p_length)
+        self.sep_q_encodes = context_encoder(self.q_emb, self.q_length)
 
     def _match(self):
         """
@@ -243,6 +238,8 @@ class MultiAnsModel(object):
             match_layer = MatchLSTMLayer(self.hidden_size)
         elif self.algo == 'BIDAF':
             match_layer = AttentionFlowMatchLayer(self.hidden_size)
+        elif self.algo == 'RNET':
+            match_layer = RnetMatchLayer(self.hidden_size, self.training)
         else:
             raise NotImplementedError('The algorithm {} is not implemented.'.format(self.algo))
         self.match_p_encodes, _ = match_layer.match(self.sep_p_encodes, self.sep_q_encodes, self.p_length, self.q_length)
@@ -252,25 +249,21 @@ class MultiAnsModel(object):
         Employs Bi-LSTM again to fuse the context information after match layer
         """
         with tf.variable_scope('fusion'):
-            # if self.use_rnn_dropout:
-            #     self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1,
-            #                                  self.rnn_dropout_keep_prob)
-            # else:
-            #     self.fuse_p_encodes, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
+            # # 注意 hidden_size 能被 heads 整除，且 hidden_size 要和输入的dim=-1的维度相同（存在残差连接）
+            # fuse_encoder = MultiHeadSelfAttentionEncoder(heads=2,
+            #                                              input_hidden_size=self.hidden_size * 2,
+            #                                              out_rnn_hidden_size=self.hidden_size,
+            #                                              training=self.training,
+            #                                              keep_prob=self.rnn_dropout_keep_prob)
+            # self.fuse_p_encodes = fuse_encoder(self.match_p_encodes, self.p_length)
 
-            rnn_fused, _ = rnn('bi-lstm', self.match_p_encodes, self.p_length, self.hidden_size, 1)
-
-            self_attention = SelfAttention()
-            c2c = self_attention(rnn_fused, self.p_length)
-            self_attented_rep = tf.concat([c2c, c2c * rnn_fused], axis=len(c2c.shape) - 1)
-            dense = tf.keras.layers.Dense(self.hidden_size * 2, use_bias=True, activation=tf.nn.relu)
-            self_attented_rep = dense(self_attented_rep)
-            self.fuse_p_encodes = rnn_fused + self_attented_rep
+            # self.fuse_p_encodes, _ = rnn('bi-gru', self.match_p_encodes, self.p_length, self.hidden_size, 1, self.rnn_dropout_keep_prob)
 
             if self.use_fuse_dropout:
                 variational_dropout = VariationalDropout(self.fuse_dropout_keep_prob)
                 self.fuse_p_encodes = variational_dropout(self.fuse_p_encodes, self.training)
 
+            # concate some engineered matching features
             if self.config.use_distance_features:
                 self.fuse_p_encodes = tf.concat([self.fuse_p_encodes,
                                                  tf.expand_dims(self.p_para_count_based_cos_distance, axis=2),
@@ -349,10 +342,6 @@ class MultiAnsModel(object):
         else:
             raise NotImplementedError('Unsupported optimizer: {}'.format(self.optim_type))
         self.train_op = self.optimizer.minimize(self.loss)
-        # grads, variables = zip(*self.optimizer.compute_gradients(self.loss))
-        # grads, global_norm = tf.clip_by_global_norm(grads, 5)
-        # self.train_op = self.optimizer.apply_gradients(zip(grads, variables))
-
 
     def _add_extra_data(self, feed_dict, batch):
         if self.config.use_multi_ans_loss:
@@ -458,11 +447,13 @@ class MultiAnsModel(object):
             real_batch_size = data.get_real_batch_size(batch_size=batch_size, set_name='train')
             self.logger.info('real batch size after bin cut: {}'.format(real_batch_size))
 
-            # 对于少于 batch_size 的 batch 数据进行丢弃，所以此处不加 1
-            total_batch_count = data.get_data_length('train') // real_batch_size
-            if real_batch_size == batch_size:
-                # 没有bin的情况，由于没有丢弃最后一个batch，所以此处加1
-                total_batch_count += int(data.get_data_length('train') % real_batch_size != 0)
+            total_batch_count = 0
+            train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True, calc_total_batch_cnt=True)
+            for batch in train_batches:
+                if len(batch) == real_batch_size:
+                    total_batch_count += 1
+
+            self.logger.info('total training batch counts: {}'.format(total_batch_count))
             train_batches = data.gen_mini_batches('train', batch_size, pad_id, shuffle=True)
 
             # training for one epoch
@@ -500,8 +491,7 @@ class MultiAnsModel(object):
                     self.logger.info('Evaluating the model after processed {} batches in one epoch'.format(processed_batch_cnt))
                     if data.dev_set is not None:
                         eval_batches = data.gen_mini_batches('dev', batch_size, pad_id, shuffle=False)
-                        total_batch_count = data.get_data_length('dev') // batch_size + int(
-                            data.get_data_length('dev') % batch_size != 0)
+                        total_batch_count = data.get_data_length('dev') // batch_size + int(data.get_data_length('dev') % batch_size != 0)
                         eval_loss, bleu_rouge = self.evaluate(total_batch_count, eval_batches)
                         self.logger.info('Dev eval loss {}'.format(eval_loss))
                         self.logger.info('Dev eval result: {}'.format(bleu_rouge))

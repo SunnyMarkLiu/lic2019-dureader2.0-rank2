@@ -2,6 +2,7 @@
 This module implements the Vocab class for converting string to id and back
 """
 import gc
+import re
 import logging
 import operator
 import numpy as np

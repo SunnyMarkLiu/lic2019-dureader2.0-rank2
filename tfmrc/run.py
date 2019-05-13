@@ -131,7 +131,7 @@ def parse_args():
                                 help='evaluate count in one epoch, default 0, evaluate for epoch (must >0)')
 
     model_settings = parser.add_argument_group('model settings')
-    model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM'], default='BIDAF',
+    model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM', 'RNET'], default='RNET',
                                 help='choose the algorithm to use')
     model_settings.add_argument('--embed_size', type=int, default=300,
                                 help='size of the embeddings')
@@ -152,7 +152,6 @@ def parse_args():
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
     #                            default=['../input/demo/search.dev.json'],
-    #                                     # '../input/demo/cleaned_18.search.dev.json'],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
     #                            default=['../input/demo/search.test1.json'],
@@ -179,7 +178,7 @@ def parse_args():
     path_settings.add_argument('--log_path',
                                help='path of the log file. If not set, logs are printed to console')
     path_settings.add_argument('--pretrained_word_path',
-                               default='../../../pretrained_embeddings/chinese/2.merge_sgns_bigram_char300.txt',
+                               default='/home/lq/projects/pretrained_embeddings/chinese/2.merge_sgns_bigram_char300.txt',
                                help='pretrained word path. If not set, word embeddings will be randomly init')
     return parser.parse_args()
 
@@ -273,13 +272,7 @@ def train(args):
     brc_data.convert_to_ids(vocab, args.use_oov2unk)
     logger.info('Initialize the model...')
     rc_model = MultiAnsModel(vocab, args)
-    # rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type),
-    #                  model_prefix=args.desc + args.algo)
     logger.info('Training the model...')
-    # rc_model.train(brc_data, args.epochs, args.batch_size,
-    #                save_dir=os.path.join(args.model_dir, args.data_type),
-    #                save_prefix=args.desc + args.algo,
-    #                dropout_keep_prob=args.dropout_keep_prob)
     rc_model.train_and_evaluate_several_batchly(
         data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
         evaluate_cnt_in_one_epoch=args.evaluate_cnt_in_one_epoch,
@@ -320,8 +313,7 @@ def evaluate(args):
     dev_batches = brc_data.gen_mini_batches('dev', args.batch_size,
                                             pad_id=vocab.get_id(vocab.pad_token),
                                             shuffle=False)
-    total_batch_count = brc_data.get_data_length('dev') // args.batch_size + \
-                        int(brc_data.get_data_length('dev') % args.batch_size != 0)
+    total_batch_count = brc_data.get_data_length('dev') // args.batch_size + int(brc_data.get_data_length('dev') % args.batch_size != 0)
     dev_loss, dev_bleu_rouge = rc_model.evaluate(total_batch_count,
                                                  dev_batches,
                                                  result_dir=os.path.join(args.result_dir, args.data_type),

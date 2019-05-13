@@ -70,7 +70,7 @@ class Dataset(object):
         if self.badcase_sample_log_file:
             self.badcase_dumper = open(badcase_sample_log_file, 'w')
 
-        self.train_set, self.dev_set, self.test_set = [], [], []
+        self.train_set, self.cleaned18_dev_set, self.dev_set, self.test_set = [], [], [], []
         if train_files:
             for train_file in train_files:
                 self.train_set += self._load_dataset(train_file, train=True)
@@ -91,7 +91,7 @@ class Dataset(object):
 
         # 对于训练集，统计训练集的答案长度分布
         if self.train_set and self.train_answer_len_cut_bins > 0:
-            self.logger.info('cut the mean answer length with same frequence')
+            self.logger.info('answer length bin cut for training set...')
             # 统计该样本答案的长度
             train_answer_lens = []
             for sample in self.train_set:
@@ -114,9 +114,10 @@ class Dataset(object):
                 self.bin_cut_train_sets[answer_bin].append(sample)
 
             self.min_bin_data_size = min([len(bin_set) for bin_set in self.bin_cut_train_sets])
-            self.bin_set_count = np.array([len(s) for s in self.bin_cut_train_sets])
+            self.train_bin_set_count = [len(s) for s in self.bin_cut_train_sets]
             self.train_set.clear()  # save memory
-            self.logger.info('bincut done.')
+            self.logger.info('trainset bin length: {}'.format(self.train_bin_set_count))
+            self.logger.info('trainset bincut done.')
         else:
             self.bin_cut_train_sets = []    # dev/test
 
@@ -273,7 +274,7 @@ class Dataset(object):
         else:
             raise NotImplementedError('No data set named as {}'.format(set_name))
 
-    def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True):
+    def gen_mini_batches(self, set_name, batch_size, pad_id, shuffle=True, calc_total_batch_cnt=False):
         """
         Generate data batches for a specific dataset (train/dev/test)
         Args:
@@ -281,6 +282,7 @@ class Dataset(object):
             batch_size: number of samples in one batch
             pad_id: pad id
             shuffle: if set to be true, the data is shuffled.
+            calc_total_batch_cnt: used to calc the total batch counts
         Returns:
             a generator for all batches
         """
@@ -295,6 +297,7 @@ class Dataset(object):
             bin_batch_size = batch_size // self.train_answer_len_cut_bins
             # 实际训练的 batch size 大小
             real_batch_size = bin_batch_size * self.train_answer_len_cut_bins
+            balance_batch_cnt = 0
             for batch_start in np.arange(0, data_size, bin_batch_size):
                 # 从每个 bin_set 中均衡采样数据
                 batch_set = []
@@ -305,15 +308,24 @@ class Dataset(object):
                         should_concat = True
                         break
                     batch_set += batch_binset
-                if not should_concat:
+                if not should_concat:   # bin 里的小batch数据进行拼接
                     for bin_i, bin_set in enumerate(self.bin_cut_train_sets):
                         bin_left_idx[bin_i] = batch_start + bin_batch_size
-                    yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+
+                    balance_batch_cnt += 1
+                    if calc_total_batch_cnt:
+                        yield batch_set
+                    else:
+                        yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
                 else:
                     break
 
             # 剩下的bin的样本进行拼接，同时将数目最小的bin进行适当的数据上采样
-            bin_left_cnts = list(self.bin_set_count - np.array(bin_left_idx))
+            bin_left_cnts = list(self.train_bin_set_count - np.array(bin_left_idx) + 1)
+            if calc_total_batch_cnt:
+                self.logger.info('after processed {} balanced batches, still left {} samples'.format(
+                    balance_batch_cnt, bin_left_cnts))
+
             least_bin_cnt = min(bin_left_cnts)
             least_bin_idx = bin_left_cnts.index(least_bin_cnt)
             del bin_left_cnts[least_bin_idx]
@@ -324,7 +336,7 @@ class Dataset(object):
             left_set = []
             for idx, bin_set in enumerate(self.bin_cut_train_sets):
                 if idx == least_bin_idx:
-                    sample_idxs = [randint(0, self.bin_set_count[idx]) for _ in range(0, upsample_cnt)]
+                    sample_idxs = [randint(0, self.train_bin_set_count[idx]) for _ in range(0, upsample_cnt)]
                     upsample = map(bin_set.__getitem__, sample_idxs)
                     bin_set += upsample
                 left_set += bin_set[bin_left_idx[idx]:]
@@ -338,14 +350,17 @@ class Dataset(object):
                     left_batch_set = left_set[batch_start: batch_start + real_batch_size]
                     if len(left_batch_set) < real_batch_size:
                         break
-                    yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
+                    if calc_total_batch_cnt:
+                        yield left_batch_set
+                    else:
+                        yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
         else:
             if set_name == 'train' and self.train_answer_len_cut_bins <= 0:
                 data_set = self.train_set
                 is_testing = False
             elif set_name == 'dev':
                 data_set = self.dev_set
-                is_testing = True
+                is_testing = False
             elif set_name == 'test':
                 data_set = self.test_set
                 is_testing = True
@@ -516,7 +531,7 @@ class Dataset(object):
         batch_data, padded_p_len, padded_q_len = self._dynamic_padding(batch_data, pad_id)
 
         # 增加信息,修改
-        if not is_testing:
+        if not is_testing:      # train / dev
             for sample in batch_samples:
                 start_ids = []
                 end_ids = []

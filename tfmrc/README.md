@@ -1,26 +1,24 @@
 ## prepare
 ```bash
 nohup python run.py --prepare --create_vocab true --data_type search \
-                    --max_a_len 300 --train_answer_len_cut_bins 6 \
-                    > search_prepare.log 2>&1 &
+                    --max_a_len 300 --train_answer_len_cut_bins -1 > search_prepare.log 2>&1 &
 nohup python run.py --prepare --create_vocab true --data_type zhidao \
-                    --max_a_len 400 --train_answer_len_cut_bins 6 \
-                    > zhidao_prepare.log 2>&1 &
+                    --max_a_len 400 --train_answer_len_cut_bins -1 > zhidao_prepare.log 2>&1 &
 ```
 
 ## train
 ```bash
-nohup python run.py --train --gpu 2 --data_type search --desc 'pure_v5' \
+nohup python run.py --train --gpu 3 --data_type search --desc 'pure_v5' --algo RNET \
                     --max_a_len 300 --train_answer_len_cut_bins 6 --batch_size 32 \
-                    --rnn_dropout_keep_prob 0.95 --fuse_dropout_keep_prob 0.9 --weight_decay 0.00003 \
-                    --evaluate_cnt_in_one_epoch 2 \
-                    > search_train_self_att.log 2>&1 &
+                    --rnn_dropout_keep_prob 1 --fuse_dropout_keep_prob 1 --weight_decay 0 \
+                    --epochs 20 \
+                    > search.train.log 2>&1 &
 
-nohup python run.py --train --gpu 0 --data_type zhidao --desc 'pure_v5' \
+nohup python run.py --train --gpu 1 --data_type zhidao --desc 'pure_v5' --algo RNET \
                     --max_a_len 400 --train_answer_len_cut_bins 6 --batch_size 32 \
-                    --rnn_dropout_keep_prob 0.95 --fuse_dropout_keep_prob 0.9 --weight_decay 0.00003 \
-                    --evaluate_cnt_in_one_epoch 2 \
-                    > zhidao_train_self_att.log 2>&1 &
+                    --rnn_dropout_keep_prob 1 --fuse_dropout_keep_prob 1 --weight_decay 0 \
+                    --epochs 20 \
+                    > zhidao.train.log 2>&1 &
 ```
 
 ## evaluate
