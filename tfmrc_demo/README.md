@@ -8,12 +8,12 @@ nohup python run.py --prepare --create_vocab true --data_type zhidao \
 
 ## train
 ```bash
-python run.py --train --gpu 3 --data_type search --desc 'pure_v5' --algo BIDAF_SELF_ATTENTION \
+python run.py --train --gpu 3 --data_type search --desc 'pure_v5' --algo RNET \
               --max_a_len 300 --train_answer_len_cut_bins 6 --batch_size 32 \
               --rnn_dropout_keep_prob 1 --fuse_dropout_keep_prob 1 --weight_decay 0 \
               --epochs 2
 
-python run.py --train --gpu 0 --data_type zhidao --desc 'pure_v5' \
+python run.py --train --gpu 0 --data_type zhidao --desc 'pure_v5' --algo RNET \
               --max_a_len 400 --train_answer_len_cut_bins 6 --batch_size 32 \
               --rnn_dropout_keep_prob 0.95 --fuse_dropout_keep_prob 0.9 --weight_decay 0.00003 \
               --epochs 2

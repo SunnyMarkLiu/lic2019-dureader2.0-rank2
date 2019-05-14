@@ -148,13 +148,13 @@ def parse_args():
 
     path_settings = parser.add_argument_group('path settings')
     path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/demo/search.train.json'],
+                               default=['../input/demo2/search.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=['../input/demo/search.dev.json'],
+                               default=['../input/demo2/search.dev.json'],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=['../input/demo/search.test1.json'],
+                               default=['../input/demo2/search.test1.json'],
                                help='list of files that contain the preprocessed test data')
 
     # path_settings.add_argument('--train_files', nargs='+',
