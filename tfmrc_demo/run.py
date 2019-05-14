@@ -131,7 +131,7 @@ def parse_args():
                                 help='evaluate count in one epoch, default 0, evaluate for epoch (must >0)')
 
     model_settings = parser.add_argument_group('model settings')
-    model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM', 'RNET'], default='RNET',
+    model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM', 'RNET', 'BIDAF_SELF_ATTENTION'], default='RNET',
                                 help='choose the algorithm to use')
     model_settings.add_argument('--embed_size', type=int, default=300,
                                 help='size of the embeddings')

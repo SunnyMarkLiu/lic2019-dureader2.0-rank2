@@ -11,12 +11,9 @@ import time
 import logging
 import json
 import numpy as np
-import tensorflow as tf
 from util.metric import compute_bleu_rouge
 from util.metric import normalize
-from layers.match_layer import MatchLSTMLayer
-from layers.match_layer import AttentionFlowMatchLayer
-from layers.match_layer import RnetMatchLayer
+from layers.match_layer import *
 from layers.pointer_net import PointerNetDecoder
 from layers.loss_func import cul_single_ans_loss, cul_weighted_avg_loss, cul_pas_sel_loss
 from tqdm import tqdm
@@ -62,10 +59,8 @@ class MultiAnsModel(object):
         # dropout
         # rnn encoder dropout
         self.rnn_dropout_keep_prob = args.rnn_dropout_keep_prob
-        self.use_rnn_dropout = self.rnn_dropout_keep_prob < 1
         # fuse 层的 dropout
         self.fuse_dropout_keep_prob = args.fuse_dropout_keep_prob
-        self.use_fuse_dropout = self.fuse_dropout_keep_prob < 1
 
         self._build_graph()
 
@@ -226,7 +221,7 @@ class MultiAnsModel(object):
                                                         input_hidden_size=self.hidden_size,
                                                         out_rnn_hidden_size=self.hidden_size,
                                                         training=self.training,
-                                                        keep_prob=self.rnn_dropout_keep_prob)
+                                                        keep_prob=self.rnn_dropout_keep_prob_ph)
         self.sep_p_encodes = context_encoder(self.p_emb, self.p_length)
         self.sep_q_encodes = context_encoder(self.q_emb, self.q_length)
 
@@ -240,6 +235,10 @@ class MultiAnsModel(object):
             match_layer = AttentionFlowMatchLayer(self.hidden_size)
         elif self.algo == 'RNET':
             match_layer = RnetMatchLayer(self.hidden_size, self.training)
+        elif self.algo == 'BIDAF_SELF_ATTENTION':
+            match_layer = AttentionFlowMultiHeadMatchLayer(2*self.hidden_size, heads=2,
+                                                           training=self.training,
+                                                           dropout_keep_prob=self.rnn_dropout_keep_prob_ph)
         else:
             raise NotImplementedError('The algorithm {} is not implemented.'.format(self.algo))
         self.match_p_encodes, _ = match_layer.match(self.sep_p_encodes, self.sep_q_encodes, self.p_length, self.q_length)
@@ -254,17 +253,15 @@ class MultiAnsModel(object):
             #                                              input_hidden_size=self.hidden_size * 2,
             #                                              out_rnn_hidden_size=self.hidden_size,
             #                                              training=self.training,
-            #                                              keep_prob=self.rnn_dropout_keep_prob)
+            #                                              keep_prob=self.rnn_dropout_keep_prob_ph)
             # self.fuse_p_encodes = fuse_encoder(self.match_p_encodes, self.p_length)
 
-            # self.fuse_p_encodes, _ = rnn('bi-gru', self.match_p_encodes, self.p_length, self.hidden_size, 1, self.rnn_dropout_keep_prob)
+            # self.fuse_p_encodes, _ = rnn('bi-gru', self.match_p_encodes, self.p_length, self.hidden_size, 1, self.rnn_dropout_keep_prob_ph)
 
-            # 去掉 fuse 的rnn
             self.fuse_p_encodes = self.match_p_encodes
 
-            if self.use_fuse_dropout:
-                variational_dropout = VariationalDropout(self.fuse_dropout_keep_prob)
-                self.fuse_p_encodes = variational_dropout(self.fuse_p_encodes, self.training)
+            variational_dropout = VariationalDropout(self.fuse_dropout_keep_prob_ph)
+            self.fuse_p_encodes = variational_dropout(self.fuse_p_encodes, self.training)
 
             # concate some engineered matching features
             if self.config.use_distance_features:
@@ -593,8 +590,8 @@ class MultiAnsModel(object):
                          self.q: batch['question_token_ids'],
                          self.p_length: batch['passage_length'],
                          self.q_length: batch['question_length'],
-                         self.rnn_dropout_keep_prob_ph: self.rnn_dropout_keep_prob,
-                         self.fuse_dropout_keep_prob_ph: self.fuse_dropout_keep_prob,
+                         self.rnn_dropout_keep_prob_ph: 1,
+                         self.fuse_dropout_keep_prob_ph: 1,
                          self.training: False}
 
             feed_dict = self._add_extra_data(feed_dict, batch)

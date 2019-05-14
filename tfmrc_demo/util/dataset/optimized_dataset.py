@@ -335,11 +335,12 @@ class Dataset(object):
 
             left_set = []
             for idx, bin_set in enumerate(self.bin_cut_train_sets):
+                tmp_bin_set = []
                 if idx == least_bin_idx:
                     sample_idxs = [randint(0, self.train_bin_set_count[idx]) for _ in range(0, upsample_cnt)]
                     upsample = map(bin_set.__getitem__, sample_idxs)
-                    bin_set += upsample
-                left_set += bin_set[bin_left_idx[idx]:]
+                    tmp_bin_set = bin_set + list(upsample)
+                left_set += tmp_bin_set[bin_left_idx[idx]:]
 
             if len(left_set) > 0:
                 if shuffle:
