@@ -236,7 +236,7 @@ class MultiAnsModel(object):
         elif self.algo == 'RNET':
             match_layer = RnetMatchLayer(self.hidden_size, self.training)
         elif self.algo == 'BIDAF_SELF_ATTENTION':
-            match_layer = AttentionFlowMultiHeadMatchLayer(2*self.hidden_size, heads=2,
+            match_layer = AttentionFlowMultiHeadMatchLayer(self.hidden_size, heads=2,
                                                            training=self.training,
                                                            dropout_keep_prob=self.rnn_dropout_keep_prob_ph)
         else:

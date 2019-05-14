@@ -56,12 +56,6 @@ class MultiAnsModel(object):
         sess_config.gpu_options.allow_growth = False
         self.sess = tf.Session(config=sess_config)
 
-        # dropout
-        # rnn encoder dropout
-        self.rnn_dropout_keep_prob = args.rnn_dropout_keep_prob
-        # fuse 层的 dropout
-        self.fuse_dropout_keep_prob = args.fuse_dropout_keep_prob
-
         self._build_graph()
 
         # save info
@@ -236,7 +230,7 @@ class MultiAnsModel(object):
         elif self.algo == 'RNET':
             match_layer = RnetMatchLayer(self.hidden_size, self.training)
         elif self.algo == 'BIDAF_SELF_ATTENTION':
-            match_layer = AttentionFlowMultiHeadMatchLayer(2*self.hidden_size, heads=2,
+            match_layer = AttentionFlowMultiHeadMatchLayer(self.hidden_size, heads=2,
                                                            training=self.training,
                                                            dropout_keep_prob=self.rnn_dropout_keep_prob_ph)
         else:
@@ -413,8 +407,8 @@ class MultiAnsModel(object):
                          self.q: batch['question_token_ids'],
                          self.p_length: batch['passage_length'],
                          self.q_length: batch['question_length'],
-                         self.rnn_dropout_keep_prob_ph: self.rnn_dropout_keep_prob,
-                         self.fuse_dropout_keep_prob_ph: self.fuse_dropout_keep_prob,
+                         self.rnn_dropout_keep_prob_ph: self.config.rnn_dropout_keep_prob,
+                         self.fuse_dropout_keep_prob_ph: self.config.fuse_dropout_keep_prob,
                          self.training: True}
 
             feed_dict = self._add_extra_data(feed_dict, batch)
@@ -472,8 +466,8 @@ class MultiAnsModel(object):
                              self.q: batch['question_token_ids'],
                              self.p_length: batch['passage_length'],
                              self.q_length: batch['question_length'],
-                             self.rnn_dropout_keep_prob_ph: self.rnn_dropout_keep_prob,
-                             self.fuse_dropout_keep_prob_ph: self.fuse_dropout_keep_prob,
+                             self.rnn_dropout_keep_prob_ph: self.config.rnn_dropout_keep_prob,
+                             self.fuse_dropout_keep_prob_ph: self.config.fuse_dropout_keep_prob,
                              self.training: True}
                 feed_dict = self._add_extra_data(feed_dict, batch)
 

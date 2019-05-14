@@ -5,8 +5,8 @@ VERY_NEGATIVE_NUMBER = -1e29
 
 
 def dropout(x, keep_prob, training, noise_shape=None):
-    if keep_prob >= 1.0:
-        return x
+    # if keep_prob >= 1.0:
+    #     return x
     return tf.cond(training, lambda: tf.nn.dropout(x, keep_prob, noise_shape=noise_shape), lambda: x)
 
 
