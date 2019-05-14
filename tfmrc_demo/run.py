@@ -99,6 +99,8 @@ def parse_args():
                                 help='whether create vocab file when run prepare function')
     extra_settings.add_argument('--vocab_min_cnt', type=int, default=2,
                                 help='filter the vocab where their cnt < vocab_min_cnt')
+    extra_settings.add_argument('--trainable_oov_cnt_threshold', type=int, default=300,
+                                help='trainable oov words count threshold')
     # 文档rank分数选择
     extra_settings.add_argument('--use_para_prior_scores', choices=["None", "baidu", "zhidao", "search", "all", "best"],
                                 default='None',
@@ -213,7 +215,8 @@ def prepare(args):
                            train_files=args.train_files,
                            badcase_sample_log_file=args.badcase_sample_log_file)
         logger.info('Building vocabulary...')
-        vocab = Vocab(init_random=args.initial_tokens_random)
+        vocab = Vocab(init_random=args.initial_tokens_random,
+                      trainable_oov_cnt_threshold=args.trainable_oov_cnt_threshold)
         for word in brc_data.word_iter('train'):
             vocab.add(word)
 

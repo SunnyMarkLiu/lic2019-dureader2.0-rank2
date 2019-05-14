@@ -293,6 +293,7 @@ class Dataset(object):
                 for bin_set in self.bin_cut_train_sets:
                     np.random.shuffle(bin_set)
 
+            # ---------- Step1: 对完整数据的 bin 进行均衡采样 ----------
             bin_left_idx = [0] * self.train_answer_len_cut_bins
             bin_batch_size = batch_size // self.train_answer_len_cut_bins
             # 实际训练的 batch size 大小
@@ -320,11 +321,11 @@ class Dataset(object):
                 else:
                     break
 
-            # 剩下的bin的样本进行拼接，同时将数目最小的bin进行适当的数据上采样
+            # ---------- Step2: 剩下的bin的样本进行拼接，同时将数目最小的bin进行适当的数据上采样 ----------
             bin_left_cnts = list(self.train_bin_set_count - np.array(bin_left_idx) + 1)
             if calc_total_batch_cnt:
-                self.logger.info('after processed {} balanced batches, still left {} samples'.format(
-                    balance_batch_cnt, bin_left_cnts))
+                self.logger.info('after processed {} balanced batches, still left {} samples, left start index {}'.format(
+                    balance_batch_cnt, bin_left_cnts, bin_left_idx))
 
             least_bin_cnt = min(bin_left_cnts)
             least_bin_idx = bin_left_cnts.index(least_bin_cnt)
@@ -332,29 +333,65 @@ class Dataset(object):
             second_least_bin_cnt = min(bin_left_cnts)
             # least_bin_idx 的 bin 上采样的数目 upsample_cnt
             upsample_cnt = second_least_bin_cnt - least_bin_cnt
+            if calc_total_batch_cnt:
+                self.logger.info('bin sample count {}'.format(upsample_cnt))
 
-            left_set = []
+            left_set = [[]] * self.train_answer_len_cut_bins
             for idx, bin_set in enumerate(self.bin_cut_train_sets):
-                tmp_bin_set = []
+                tmp_bin_set = bin_set
                 if idx == least_bin_idx:
                     sample_idxs = [randint(0, self.train_bin_set_count[idx]) for _ in range(0, upsample_cnt)]
                     upsample = map(bin_set.__getitem__, sample_idxs)
                     tmp_bin_set = bin_set + list(upsample)
-                left_set += tmp_bin_set[bin_left_idx[idx]:]
+                left_set[idx] = tmp_bin_set[bin_left_idx[idx]:]
 
-            if len(left_set) > 0:
+            bin_left_idx = [0] * self.train_answer_len_cut_bins
+            for batch_start in np.arange(0, data_size, bin_batch_size):
+                # 从每个 bin_set 中均衡采样数据
+                batch_set = []
+                should_concat = False
+                for bin_i, bin_set in enumerate(left_set):  # 注意这里换成 left_set
+                    batch_binset = bin_set[batch_start: batch_start + bin_batch_size]
+                    if len(batch_binset) < bin_batch_size:
+                        should_concat = True
+                        break
+                    batch_set += batch_binset
+                if not should_concat:  # bin 里的小batch数据进行拼接
+                    for bin_i, bin_set in enumerate(self.bin_cut_train_sets):
+                        bin_left_idx[bin_i] = batch_start + bin_batch_size
+
+                    balance_batch_cnt += 1
+                    if calc_total_batch_cnt:
+                        yield batch_set
+                    else:
+                        yield self._one_mini_batch(batch_set, range(len(batch_set)), pad_id, is_testing=False)
+                else:
+                    break
+
+            final_left_set = []
+            for idx, bin_set in enumerate(left_set):
+                final_left_set += bin_set[bin_left_idx[idx]:]
+
+            if calc_total_batch_cnt:
+                self.logger.info('current final left set {}'.format(len(final_left_set)))
+            left_processed_cnt = 0
+            if len(final_left_set) > 0:
                 if shuffle:
-                    np.random.shuffle(left_set)
+                    np.random.shuffle(final_left_set)
 
-                left_data_size = len(left_set)
+                left_data_size = len(final_left_set)
                 for batch_start in np.arange(0, left_data_size, real_batch_size):
-                    left_batch_set = left_set[batch_start: batch_start + real_batch_size]
+                    left_batch_set = final_left_set[batch_start: batch_start + real_batch_size]
                     if len(left_batch_set) < real_batch_size:
                         break
                     if calc_total_batch_cnt:
+                        left_processed_cnt += 1
                         yield left_batch_set
                     else:
                         yield self._one_mini_batch(left_batch_set, range(len(left_batch_set)), pad_id, is_testing=False)
+
+            if calc_total_batch_cnt:
+                self.logger.info('left set processed batch count {}, still remain {}'.format(left_processed_cnt, len(final_left_set) - left_processed_cnt * real_batch_size))
         else:
             if set_name == 'train' and self.train_answer_len_cut_bins <= 0:
                 data_set = self.train_set

@@ -99,6 +99,8 @@ def parse_args():
                                 help='whether create vocab file when run prepare function')
     extra_settings.add_argument('--vocab_min_cnt', type=int, default=2,
                                 help='filter the vocab where their cnt < vocab_min_cnt')
+    extra_settings.add_argument('--trainable_oov_cnt_threshold', type=int, default=300,
+                                help='trainable oov words count threshold')
     # 文档rank分数选择
     extra_settings.add_argument('--use_para_prior_scores', choices=["None", "baidu", "zhidao", "search", "all", "best"],
                                 default='None',
@@ -131,7 +133,7 @@ def parse_args():
                                 help='evaluate count in one epoch, default 0, evaluate for epoch (must >0)')
 
     model_settings = parser.add_argument_group('model settings')
-    model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM', 'RNET'], default='RNET',
+    model_settings.add_argument('--algo', choices=['BIDAF', 'MLSTM', 'RNET', 'BIDAF_SELF_ATTENTION'], default='RNET',
                                 help='choose the algorithm to use')
     model_settings.add_argument('--embed_size', type=int, default=300,
                                 help='size of the embeddings')
@@ -148,13 +150,13 @@ def parse_args():
 
     path_settings = parser.add_argument_group('path settings')
     # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=['../input/demo/search.train.json'],
+    #                            default=['../input/demo2/search.train.json'],
     #                            help='list of files that contain the preprocessed train data')
     # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=['../input/demo/search.dev.json'],
+    #                            default=['../input/demo2/search.dev.json'],
     #                            help='list of files that contain the preprocessed dev data')
     # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=['../input/demo/search.test1.json'],
+    #                            default=['../input/demo2/search.test1.json'],
     #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--train_files', nargs='+',
@@ -213,7 +215,8 @@ def prepare(args):
                            train_files=args.train_files,
                            badcase_sample_log_file=args.badcase_sample_log_file)
         logger.info('Building vocabulary...')
-        vocab = Vocab(init_random=args.initial_tokens_random)
+        vocab = Vocab(init_random=args.initial_tokens_random,
+                      trainable_oov_cnt_threshold=args.trainable_oov_cnt_threshold)
         for word in brc_data.word_iter('train'):
             vocab.add(word)
 

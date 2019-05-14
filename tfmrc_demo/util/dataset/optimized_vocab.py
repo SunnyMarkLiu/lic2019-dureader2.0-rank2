@@ -23,7 +23,10 @@ class Vocab(LoggerMixin):
     Implements a vocabulary to store the tokens in the data, with their corresponding embeddings.
     """
 
-    def __init__(self, init_random=False):
+    def __init__(self, init_random=False, trainable_oov_cnt_threshold=300):
+        """
+        trainable_oov_cnt_threshold: vocab中出现次数超过该阈值的 oov 词，设置为可训练，否则映射为 unk
+        """
         self.id2token = {}
         self.token2id = {}
         self.token_cnt = {}
@@ -47,6 +50,10 @@ class Vocab(LoggerMixin):
 
         # oov的词用于前面，可用于后期词向量可训练
         self.oov_word_end_idx = self.get_id(self.unk_token)
+
+        self.oov_counts = {}
+        self.trainable_oov_cnt_threshold = trainable_oov_cnt_threshold
+
 
     def size(self):
         """
@@ -132,7 +139,7 @@ class Vocab(LoggerMixin):
 
     def rebuild_add(self, token):
         """
-        rebuild vocab, remove text normalization, faster add token
+        rebuild vocab, remove text normalization, add token faster
         """
         if token in self.token2id:
             idx = self.token2id[token]
@@ -252,7 +259,11 @@ class Vocab(LoggerMixin):
         self.logger.info(
             'Found embeddings for {:.6%} of all text'.format(1 - oov_text_count / sum(self.token_cnt.values())))
         self.logger.info('Save out of vocabulary words to logs/oov_words.txt')
-        oov_words = sorted(oov_words, key=operator.itemgetter(2))[::-1]
+        oov_words = sorted(oov_words, key=operator.itemgetter(2))
+
+        # oov 词及其在 train 中出现的次数
+        self.oov_counts = {oov_word[0]: oov_word[1] for oov_word in oov_words}
+
         with open('logs/oov_words_{}.txt'.format(embeddings_file.split('/')[-1]), 'w') as oov_writer:
             oov_writer.writelines([oov[0] + '\t' + str(oov[2]) + '\n' for oov in oov_words])
 
@@ -261,9 +272,10 @@ class Vocab(LoggerMixin):
         self.id2token = {}
 
         # oov words
-        self.rebuild_add(self.unk_token)
+        self.rebuild_add(self.unk_token)    # unk_token 从 0 开始
         for oov in oov_words:
-            self.rebuild_add(oov[0])
+            if oov[1] > self.trainable_oov_cnt_threshold:
+                self.rebuild_add(oov[0])
         self.oov_word_end_idx = self.get_id(oov_words[-1][0])  # oov 词结束下标
 
         # zero words
