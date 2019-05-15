@@ -89,7 +89,7 @@ def parse_args():
     # 词表选择相关
     extra_settings.add_argument('--initial_tokens_random', type=str2bool, default=False,
                                 help='whether init the initial tokens random, if False, init them 0')
-    extra_settings.add_argument('--use_oov2unk', type=str2bool, default=True,
+    extra_settings.add_argument('--use_oov2unk', type=str2bool, default=False,
                                 help='if True, all oov words project to unk')
     extra_settings.add_argument('--vocab_dir', default='cache/vocab',
                                 help='the dir to save/load vocabulary')
