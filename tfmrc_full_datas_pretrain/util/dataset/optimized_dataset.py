@@ -483,6 +483,7 @@ class Dataset(object):
             max_ans_num = 1
 
         for sidx, sample in enumerate(batch_samples):
+
             for pidx in range(max_passage_num):
                 if pidx < len(sample['documents']):
                     batch_data['question_token_ids'].append(sample['question_token_ids'])

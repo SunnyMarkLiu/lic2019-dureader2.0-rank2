@@ -7,4 +7,4 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/5/2 19:50
 """
-from model.bidaf import MultiAnsModel
+from model.multi_task_mrc import MultiAnsModel

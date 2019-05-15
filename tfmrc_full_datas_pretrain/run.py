@@ -62,8 +62,6 @@ def parse_args():
     extra_settings.add_argument('--mrt_loss_weight', type=float, default=0,
                                 help=' the Minimum Risk Training loss weight, if 0, not use')
     # 特征选择
-    extra_settings.add_argument('--data_type', type=str,
-                                help='the type of the data, search or zhidao')
     extra_settings.add_argument('--pos_size', type=int, default=30,
                                 help='size of pos tagging, if 0, will not use pos')
     extra_settings.add_argument('--use_pos_freq', type=str2bool, default=True,
@@ -99,7 +97,7 @@ def parse_args():
                                 help='whether create vocab file when run prepare function')
     extra_settings.add_argument('--vocab_min_cnt', type=int, default=2,
                                 help='filter the vocab where their cnt < vocab_min_cnt')
-    extra_settings.add_argument('--trainable_oov_cnt_threshold', type=int, default=300,
+    extra_settings.add_argument('--trainable_oov_cnt_threshold', type=int, default=0,
                                 help='trainable oov words count threshold')
     # 文档rank分数选择
     extra_settings.add_argument('--use_para_prior_scores', choices=["None", "baidu", "zhidao", "search", "all", "best"],
@@ -149,27 +147,19 @@ def parse_args():
                                 help='max length of answer')
 
     path_settings = parser.add_argument_group('path settings')
+
     path_settings.add_argument('--train_files', nargs='+',
-                               default=['../input/demo2/search.train.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/search.train.json',
+                                        '../input/dureader_2.0_v5/final_mrc_dataset/trainset/zhidao.train.json'],
                                help='list of files that contain the preprocessed train data')
     path_settings.add_argument('--dev_files', nargs='+',
-                               default=['../input/demo2/search.dev.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
+                                        '../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json'],
                                help='list of files that contain the preprocessed dev data')
     path_settings.add_argument('--test_files', nargs='+',
-                               default=['../input/demo2/search.test1.json'],
+                               default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json',
+                                        '../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json'],
                                help='list of files that contain the preprocessed test data')
-
-    # path_settings.add_argument('--train_files', nargs='+',
-    #                            default=['../input/dureader_2.0_v5/final_mrc_dataset/trainset/search.train.json'],
-    #                            help='list of files that contain the preprocessed train data')
-    # path_settings.add_argument('--dev_files', nargs='+',
-    #                            default=['../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
-    #                                # '../input/dureader_2.0_v5/final_mrc_dataset/devset/cleaned_18.search.dev.json'
-    #                                ],
-    #                            help='list of files that contain the preprocessed dev data')
-    # path_settings.add_argument('--test_files', nargs='+',
-    #                            default=['../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json'],
-    #                            help='list of files that contain the preprocessed test data')
 
     path_settings.add_argument('--model_dir', default='cache/models/',
                                help='the dir to store models')
@@ -195,17 +185,9 @@ def prepare(args):
         assert os.path.exists(data_path), '{} file does not exist.'.format(data_path)
     logger.info('Preparing the directories...')
 
-    for dir_path in [os.path.join(args.vocab_dir, args.data_type),
-                     os.path.join(args.model_dir, args.data_type),
-                     os.path.join(args.result_dir, args.data_type),
-                     os.path.join(args.summary_dir, args.data_type)]:
+    for dir_path in [args.vocab_dir, args.model_dir, args.result_dir, args.summary_dir]:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
-
-    # data_type 容易和 data files 不一致，此处判断下
-    for f in args.train_files + args.dev_files + args.test_files:
-        if args.data_type not in f:
-            raise ValueError('Inconsistency between data_type and files')
 
     if args.create_vocab:
         logger.info('load train dataset...')
@@ -234,7 +216,7 @@ def prepare(args):
             vocab.randomly_init_embeddings(args.embed_size)
 
         logger.info('Saving vocab...')
-        vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+        vocab_path = os.path.join(args.vocab_dir, args.vocab_file)
         with open(vocab_path, 'wb') as fout:
             pickle.dump(vocab, fout)
 
@@ -248,20 +230,13 @@ def train(args):
     logger = logging.getLogger("brc")
 
     logger.info('check the directories...')
-    for dir_path in [os.path.join(args.model_dir, args.data_type),
-                     os.path.join(args.result_dir, args.data_type),
-                     os.path.join(args.summary_dir, args.data_type)]:
+    for dir_path in [args.vocab_dir, args.model_dir, args.result_dir, args.summary_dir]:
         if not os.path.exists(dir_path):
             logger.warning("don't exist {} directory, so we create it!".format(dir_path))
             os.makedirs(dir_path)
 
-    # data_type 容易和 data files 不一致，此处判断下
-    for f in args.train_files + args.dev_files + args.test_files:
-        if args.data_type not in f:
-            raise ValueError('Inconsistency between data_type and files')
-
     logger.info('Load data_set and vocab...')
-    vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+    vocab_path = os.path.join(args.vocab_dir, args.vocab_file)
     with open(vocab_path, 'rb') as fin:
         logger.info('load vocab from {}'.format(vocab_path))
         vocab = pickle.load(fin)
@@ -279,7 +254,7 @@ def train(args):
     rc_model.train_and_evaluate_several_batchly(
         data=brc_data, epochs=args.epochs, batch_size=args.batch_size,
         evaluate_cnt_in_one_epoch=args.evaluate_cnt_in_one_epoch,
-        save_dir=os.path.join(args.model_dir, args.data_type),
+        save_dir=args.model_dir,
         save_prefix=args.desc + args.algo
     )
     logger.info('Done with model training!')
@@ -291,16 +266,11 @@ def evaluate(args):
     """
     logger = logging.getLogger("brc")
     logger.info('Load data_set and vocab...')
-    vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
+    vocab_path = os.path.join(args.vocab_dir, args.vocab_file)
     with open(vocab_path, 'rb') as fin:
         logger.info('load vocab from {}'.format(vocab_path))
         vocab = pickle.load(fin)
     assert len(args.dev_files) > 0, 'No dev files are provided.'
-
-    # data_type 容易和 data files 不一致，此处判断下
-    for f in args.train_files + args.dev_files + args.test_files:
-        if args.data_type not in f:
-            raise ValueError('Inconsistency between data_type and files')
 
     brc_data = Dataset(args.max_p_num, args.max_p_len,
                        args.max_q_len, dev_files=args.dev_files,
@@ -309,9 +279,8 @@ def evaluate(args):
     brc_data.convert_to_ids(vocab, args.use_oov2unk)
     logger.info('Build the model...')
     rc_model = MultiAnsModel(vocab, args)
-    logger.info('restore model from {}, with prefix {}'.format(os.path.join(args.model_dir, args.data_type),
-                                                               args.desc + args.algo))
-    rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type), model_prefix=args.desc + args.algo)
+    logger.info('restore model from {}, with prefix {}'.format(os.path.join(args.model_dir), args.desc + args.algo))
+    rc_model.restore(model_dir=args.model_dir, model_prefix=args.desc + args.algo)
     logger.info('Evaluating the model on dev set...')
     dev_batches = brc_data.gen_mini_batches('dev', args.batch_size,
                                             pad_id=vocab.get_id(vocab.pad_token),
@@ -319,51 +288,11 @@ def evaluate(args):
     total_batch_count = brc_data.get_data_length('dev') // args.batch_size + int(brc_data.get_data_length('dev') % args.batch_size != 0)
     dev_loss, dev_bleu_rouge = rc_model.evaluate(total_batch_count,
                                                  dev_batches,
-                                                 result_dir=os.path.join(args.result_dir, args.data_type),
+                                                 result_dir=args.result_dir,
                                                  result_prefix='dev.predicted')
     logger.info('Loss on dev set: {}'.format(dev_loss))
     logger.info('Result on dev set: {}'.format(dev_bleu_rouge))
     logger.info('Predicted answers are saved to {}'.format(os.path.join(args.result_dir)))
-
-
-def predict(args):
-    """
-    predicts answers for test files
-    """
-    logger = logging.getLogger("brc")
-    vocab_path = os.path.join(args.vocab_dir, args.data_type, args.vocab_file)
-    with open(vocab_path, 'rb') as fin:
-        logger.info('load vocab from {}'.format(vocab_path))
-        vocab = pickle.load(fin)
-    assert len(args.test_files) > 0, 'No test files are provided.'
-
-    # data_type 容易和 data files 不一致，此处判断下
-    for f in args.train_files + args.dev_files + args.test_files:
-        if args.data_type not in f:
-            raise ValueError('Inconsistency between data_type and files')
-
-    brc_data = Dataset(args.max_p_num, args.max_p_len, args.max_q_len,
-                       test_files=args.test_files,
-                       badcase_sample_log_file=args.badcase_sample_log_file)
-    logger.info('Converting text into ids...')
-    brc_data.convert_to_ids(vocab, args.use_oov2unk)
-
-    logger.info('Build the model...')
-    rc_model = MultiAnsModel(vocab, args)
-
-    logger.info('restore model from {}, with prefix {}'.format(os.path.join(args.model_dir, args.data_type),
-                                                               args.desc + args.algo))
-    rc_model.restore(model_dir=os.path.join(args.model_dir, args.data_type), model_prefix=args.desc + args.algo)
-
-    logger.info('Predicting answers for test set...')
-    test_batches = brc_data.gen_mini_batches('test', args.batch_size,
-                                             pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
-    total_batch_count = brc_data.get_data_length('test') // args.batch_size + \
-                        int(brc_data.get_data_length('test') % args.batch_size != 0)
-    rc_model.evaluate(total_batch_count,
-                      test_batches,
-                      result_dir=os.path.join(args.result_dir, args.data_type),
-                      result_prefix='test.predicted')
 
 
 def run():
@@ -406,9 +335,6 @@ def run():
         train(args)
     if args.evaluate:
         evaluate(args)
-    if args.predict:
-        predict(args)
-
 
 if __name__ == '__main__':
     run()

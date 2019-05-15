@@ -2,7 +2,7 @@
 This module implements the Vocab class for converting string to id and back
 """
 import gc
-import re
+# import re
 import logging
 import operator
 import numpy as np
@@ -26,6 +26,7 @@ class Vocab(LoggerMixin):
     def __init__(self, init_random=False, trainable_oov_cnt_threshold=300):
         """
         trainable_oov_cnt_threshold: vocab中出现次数超过该阈值的 oov 词，设置为可训练，否则映射为 unk
+        use_oov2unk: 所有的 oov 映射为 unk
         """
         self.id2token = {}
         self.token2id = {}
@@ -256,9 +257,8 @@ class Vocab(LoggerMixin):
         oov_count = len(oov_words)
         self.logger.info("Missed words: {}".format(oov_count))
         self.logger.info('Found embeddings for {:.6%} of vocab'.format((self.size() - oov_count) / self.size()))
-        self.logger.info(
-            'Found embeddings for {:.6%} of all text'.format(1 - oov_text_count / sum(self.token_cnt.values())))
-        self.logger.info('Save out of vocabulary words to logs/oov_words.txt')
+        self.logger.info('Found embeddings for {:.6%} of all text'.format(1 - oov_text_count / sum(self.token_cnt.values())))
+        self.logger.info('Save out of vocabulary words to logs dir')
         oov_words = sorted(oov_words, key=operator.itemgetter(2))
 
         # oov 词及其在 train 中出现的次数
@@ -272,11 +272,15 @@ class Vocab(LoggerMixin):
         self.id2token = {}
 
         # oov words
-        self.rebuild_add(self.unk_token)    # unk_token 从 0 开始
+        self.rebuild_add(self.unk_token)
+        oov_word_idx = 0  # unk_token 从 0 开始
         for oov in oov_words:
-            if oov[1] > self.trainable_oov_cnt_threshold:
+            if oov[2] > self.trainable_oov_cnt_threshold:
                 self.rebuild_add(oov[0])
-        self.oov_word_end_idx = self.get_id(oov_words[-1][0])  # oov 词结束下标
+                oov_word_idx += 1
+        self.oov_word_end_idx = oov_word_idx  # oov 词结束下标
+        self.logger.info('oov word end idx: {}'.format(self.oov_word_end_idx))
+        self.logger.info('current oov word counts: {}'.format(self.size()))
 
         # zero words
         for token in self.zero_tokens:
