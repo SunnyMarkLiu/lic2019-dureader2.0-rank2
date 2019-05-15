@@ -87,7 +87,7 @@ def parse_args():
     # 词表选择相关
     extra_settings.add_argument('--initial_tokens_random', type=str2bool, default=False,
                                 help='whether init the initial tokens random, if False, init them 0')
-    extra_settings.add_argument('--use_oov2unk', type=str2bool, default=True,
+    extra_settings.add_argument('--use_oov2unk', type=str2bool, default=False,
                                 help='if True, all oov words project to unk')
     extra_settings.add_argument('--vocab_dir', default='cache/vocab',
                                 help='the dir to save/load vocabulary')
@@ -97,7 +97,7 @@ def parse_args():
                                 help='whether create vocab file when run prepare function')
     extra_settings.add_argument('--vocab_min_cnt', type=int, default=2,
                                 help='filter the vocab where their cnt < vocab_min_cnt')
-    extra_settings.add_argument('--trainable_oov_cnt_threshold', type=int, default=0,
+    extra_settings.add_argument('--trainable_oov_cnt_threshold', type=int, default=300,
                                 help='trainable oov words count threshold')
     # 文档rank分数选择
     extra_settings.add_argument('--use_para_prior_scores', choices=["None", "baidu", "zhidao", "search", "all", "best"],
