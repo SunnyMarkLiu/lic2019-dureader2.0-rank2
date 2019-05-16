@@ -16,6 +16,8 @@ import json
 from tqdm import tqdm
 from util.metric import normalize, compute_bleu_rouge
 from ensemble_dataset import EnsembleDataset
+from collections import defaultdict
+
 
 def parse_args():
     """
@@ -25,16 +27,16 @@ def parse_args():
         description='Reading Comprehension on BaiduRC dataset')
 
     parser.add_argument('--model_predicts', nargs='+',
-                        default=['../backup/tfmrc_5_08_57.81/',
-                                 '../backup/tfmrc_5_10_58.2/',
-                                 '../backup/tfmrc_5_13_rnet_58.47/',
-                                 '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
-                                 '../backup/tfmrc_5_14_rnet_dropout_58.76/',
-                                 '../backup/tfmrc_5_15_new_vocab_59.25/'],
+                        # 模型顺序是dev分数最高的排在前面
+                        default=[
+                            '../backup/tfmrc_5_15_new_vocab_59.25/',
+                            '../backup/tfmrc_5_14_rnet_dropout_58.76/',
+                            '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
+                            '../backup/tfmrc_5_13_rnet_58.47/',
+                            '../backup/tfmrc_5_10_58.2/',
+                            '../backup/tfmrc_5_08_57.81/',
+                            ],
                         help='list of files that current great models predicted')
-    parser.add_argument('--model_weights', nargs='+',
-                        default=[1/6] * 6,
-                        help='the average weights of models')
     parser.add_argument('--mode', type=str, choices=['dev', 'test'],
                         help='ensemble for dev or test')
     parser.add_argument('--data_type', type=str,
@@ -49,10 +51,10 @@ def parse_args():
                         help='max length of answer')
 
     parser.add_argument('--dev_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
                         help='preprocessed test file')
     parser.add_argument('--test_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json',
                         help='preprocessed test file')
 
     parser.add_argument('--result_dir', default='./',
@@ -102,14 +104,19 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
     tqdm_batch_iterator = tqdm(eval_batches, total=total_batch_count)
     for b_itx, batch in enumerate(tqdm_batch_iterator):
         padded_p_len = batch['pad_p_len']
-        start_probs, end_probs = batch['start_probs'], batch['end_probs']
-        for sample, start_prob, end_prob in zip(batch['raw_data'], start_probs, end_probs):
+        for sample, start_probs, end_probs in zip(batch['raw_data'], batch['start_probs'], batch['end_probs']):
 
-            best_answer, segmented_pred = find_best_answer(args, sample, start_prob, end_prob, padded_p_len, pp_scores)
+            # 针对每个模型预测的概率计算最佳的开始结束下标
+            answer_phrase_score = defaultdict(float)
+            for start_prob, end_prob in zip(start_probs, end_probs):
+                find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, pp_scores, answer_phrase_score)
+
+            segmented_pred = max(answer_phrase_score.items(), key=lambda pair: pair[1])[0]
+            segmented_pred = segmented_pred.split('<split>')
+            best_answer = ''.join(segmented_pred)
+
             if save_full_info:
                 sample['pred_answers'] = [best_answer]
-                sample['start_prob'] = start_prob.tolist()
-                sample['end_prob'] = end_prob.tolist()
                 pred_answers.append(sample)
             else:
                 pred_answers.append({'question_id': sample['question_id'],
@@ -118,10 +125,7 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
                                      'entity_answers': [[]],
                                      'yesno_answers': [],
                                      'segmented_question': sample['segmented_question'],
-                                     'segmented_answers': segmented_pred,
-
-                                     'start_prob': start_prob.tolist(),  # 保存 start 和 end 的概率，用于后期的 ensemble
-                                     'end_prob': end_prob.tolist()})
+                                     'segmented_answers': segmented_pred})
             if 'segmented_answers' in sample:
                 ref_answers.append({'question_id': sample['question_id'],
                                     'question_type': sample['question_type'],
@@ -151,38 +155,26 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
     return bleu_rouge
 
 
-def find_best_answer(args, sample, start_prob, end_prob, padded_p_len, para_prior_scores):
+def find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, para_prior_scores, answer_phrase_score):
     """
     Finds the best answer for a sample given start_prob and end_prob for each position.
     This will call find_best_answer_for_passage because there are multiple passages in a sample
     """
-    best_p_idx, best_span, best_score = None, None, 0
     for p_idx, passage in enumerate(sample['documents']):
         if p_idx >= args.max_p_num:
             continue
         passage_len = min(args.max_p_len, len(passage['segmented_passage']))
-        answer_span, score = find_best_answer_for_passage(args,
-            start_prob[p_idx * padded_p_len: (p_idx + 1) * padded_p_len],
-            end_prob[p_idx * padded_p_len: (p_idx + 1) * padded_p_len],
-            passage_len)
-        if para_prior_scores is not None:
-            # the Nth prior score = the Number of training samples whose gold answer comes
-            #  from the Nth paragraph / the number of the training samples
-            score *= para_prior_scores[p_idx]
-        if score > best_score:
-            best_score = score
-            best_p_idx = p_idx
-            best_span = answer_span
-    if best_p_idx is None or best_span is None:
-        best_answer = ''
-        segmented_pred = []
-    else:
-        segmented_pred = sample['documents'][best_p_idx]['segmented_passage'][best_span[0]: best_span[1] + 1]
-        best_answer = ''.join(segmented_pred)
-    return best_answer, segmented_pred
+        find_best_answer_for_passage(args,
+                                     start_prob[p_idx * padded_p_len: (p_idx + 1) * padded_p_len],
+                                     end_prob[p_idx * padded_p_len: (p_idx + 1) * padded_p_len],
+                                     para_prior_scores,
+                                     p_idx,
+                                     answer_phrase_score,
+                                     passage['segmented_passage'],
+                                     passage_len)
 
-
-def find_best_answer_for_passage(args, start_probs, end_probs, passage_len=None):
+def find_best_answer_for_passage(args, start_probs, end_probs, para_prior_scores, p_idx, answer_phrase_score,
+                                 seg_passage, passage_len=None):
     """
     Finds the best answer with the maximum start_prob * end_prob from a single passage
     """
@@ -201,8 +193,11 @@ def find_best_answer_for_passage(args, start_probs, end_probs, passage_len=None)
                 best_start = start_idx
                 best_end = end_idx
                 max_prob = prob
-    return (best_start, best_end), max_prob
 
+    if para_prior_scores is not None:
+        max_prob *= para_prior_scores[p_idx]
+    predict_answer = '<split>'.join(seg_passage[best_start: best_end + 1])
+    answer_phrase_score[predict_answer] += max_prob
 
 def ensemble():
     """
@@ -230,7 +225,7 @@ def ensemble():
         if args.data_type not in f:
             raise ValueError('Inconsistency between data_type and files')
     # 结果保存文件前缀
-    result_prefix = '{}.ensemble'.format(args.mode)
+    result_prefix = '{}.{}.ensemble'.format(args.data_type, args.mode)
 
     # 待预测文件
     if args.mode == 'dev':
@@ -249,11 +244,9 @@ def ensemble():
                                     max_q_len=args.max_q_len,
                                     max_a_len=args.max_a_len,
                                     test_file=test_file,
-                                    predicted_test_files=predict_test_files,
-                                    predicted_test_weights=args.model_weights)
+                                    predicted_test_files=predict_test_files)
     batch_generator = ensemble_data.gen_test_mini_batches(batch_size=128)
-    total_batch_count = ensemble_data.get_data_length() // 128 + \
-                        int(ensemble_data.get_data_length() % 128 != 0)
+    total_batch_count = ensemble_data.get_data_length() // 128 + int(ensemble_data.get_data_length() % 128 != 0)
     bleu_rouge = evaluate(args, total_batch_count, batch_generator, doc_prerank_mode=args.use_para_prior_scores,
                           result_dir=args.result_dir, result_prefix=result_prefix)
     if bleu_rouge:

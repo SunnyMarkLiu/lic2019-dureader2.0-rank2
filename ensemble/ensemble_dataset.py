@@ -25,39 +25,33 @@ class EnsembleDataset(object):
                  max_q_len,
                  max_a_len,
                  test_file,
-                 predicted_test_files,
-                 predicted_test_weights):
+                 predicted_test_files):
         self.logger = logging.getLogger("brc")
         self.max_p_num = max_p_num
         self.max_p_len = max_p_len
         self.max_q_len = max_q_len
         self.max_a_len = max_a_len
 
-        self.test_set = self._load_dataset(test_file, predicted_test_files, predicted_test_weights)
+        self.test_set = self._load_dataset(test_file, predicted_test_files)
 
     def get_data_length(self):
         return len(self.test_set)
 
-    def _load_dataset(self, data_path, predict_test_files, predict_test_weights):
+    def _load_dataset(self, data_path, predict_test_files):
         """
         Loads the dataset
         """
         self.logger.info('load {} model predicted results'.format(len(predict_test_files)))
-        predict_start_probs = {}
+        predict_start_probs = {}    # 记录该样本所有模型预测的概率
         predict_end_probs = {}
 
-        for weight, predict_file in zip(predict_test_weights, predict_test_files):
+        for predict_file in predict_test_files:
             with open(predict_file, 'r') as f:
                 for line in f:
                     sample = json.loads(line.strip())
                     question_id = sample['question_id']
-                    start_sum = sum(sample['start_prob'])
-                    start_prob = [start / start_sum for start in sample['start_prob']]
-                    start_prob = [ start * weight for start in start_prob]
-
-                    end_sum = sum(sample['end_prob'])
-                    end_prob = [end / end_sum for end in sample['end_prob']]
-                    end_prob = [ end * weight for end in end_prob]
+                    start_prob = sample['start_prob']
+                    end_prob = sample['end_prob']
 
                     if question_id not in predict_start_probs:
                         predict_start_probs[question_id] = [start_prob]
@@ -68,13 +62,6 @@ class EnsembleDataset(object):
                         predict_end_probs[question_id] = [end_prob]
                     else:
                         predict_end_probs[question_id].append(end_prob)
-
-        # 对每个样本的 start_prob 和 end_prob 求均值
-        for question_id in predict_start_probs:
-            predict_start_probs[question_id] = np.sum(np.array(predict_start_probs[question_id]), axis=0)
-
-        for question_id in predict_end_probs:
-            predict_end_probs[question_id] = np.sum(np.array(predict_end_probs[question_id]), axis=0)
 
         with io.open(data_path, 'r', encoding='utf-8') as fin:
             data_set = []
