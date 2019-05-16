@@ -7,15 +7,15 @@
 @github: https://github.com/sunnymarkLiu
 @time  : 2019/5/15 20:32
 """
+import sys
+sys.path.append('../tfmrc/')
 import os
 import logging
 import argparse
 import json
 from tqdm import tqdm
-from util.metric import normalize
-from util.metric import compute_bleu_rouge
-from ensemble.ensemble_dataset import EnsembleDataset
-
+from util.metric import normalize, compute_bleu_rouge
+from ensemble_dataset import EnsembleDataset
 
 def parse_args():
     """
@@ -25,14 +25,15 @@ def parse_args():
         description='Reading Comprehension on BaiduRC dataset')
 
     parser.add_argument('--model_predicts', nargs='+',
-                        default=['../backup/tfmrc_5_12_56.93/',
-                                 '../backup/tfmrc_5_08_57.81/',
+                        default=['../backup/tfmrc_5_08_57.81/',
                                  '../backup/tfmrc_5_10_58.2/',
                                  '../backup/tfmrc_5_13_rnet_58.47/',
-                                 '../backup/tfmrc_5_14_rnet_dropout_58.76/'],
+                                 '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
+                                 '../backup/tfmrc_5_14_rnet_dropout_58.76/',
+                                 '../backup/tfmrc_5_15_new_vocab_59.25/'],
                         help='list of files that current great models predicted')
     parser.add_argument('--model_weights', nargs='+',
-                        default=[0.2, 0.2, 0.2, 0.2, 0.2],
+                        default=[1/6] * 6,
                         help='the average weights of models')
     parser.add_argument('--mode', type=str, choices=['dev', 'test'],
                         help='ensemble for dev or test')
@@ -46,6 +47,17 @@ def parse_args():
                         help='max length of question')
     parser.add_argument('--max_a_len', type=int, default=300,  # search：300，zhidao：400
                         help='max length of answer')
+
+    parser.add_argument('--dev_file', type=str,
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
+                        help='preprocessed test file')
+    parser.add_argument('--test_file', type=str,
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json',
+                        help='preprocessed test file')
+
+    parser.add_argument('--result_dir', default='./',
+                               help='the dir to output the results')
+
     # 文档rank分数选择
     parser.add_argument('--use_para_prior_scores', default='None',
                         choices=["None", "baidu", "zhidao", "search", "all", "best"],
@@ -53,11 +65,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def evaluate(total_batch_count, eval_batches, doc_prerank_mode, result_dir=None, result_prefix=None,
+def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir=None, result_prefix=None,
              save_full_info=False):
     """
     Evaluates the model performance on eval_batches and results are saved if specified
     Args:
+        args: arguments
         total_batch_count: total batch counts
         eval_batches: iterable batch data
         doc_prerank_mode: document prerank scores
@@ -92,7 +105,7 @@ def evaluate(total_batch_count, eval_batches, doc_prerank_mode, result_dir=None,
         start_probs, end_probs = batch['start_probs'], batch['end_probs']
         for sample, start_prob, end_prob in zip(batch['raw_data'], start_probs, end_probs):
 
-            best_answer, segmented_pred = find_best_answer(sample, start_prob, end_prob, padded_p_len, pp_scores)
+            best_answer, segmented_pred = find_best_answer(args, sample, start_prob, end_prob, padded_p_len, pp_scores)
             if save_full_info:
                 sample['pred_answers'] = [best_answer]
                 sample['start_prob'] = start_prob.tolist()
@@ -138,17 +151,17 @@ def evaluate(total_batch_count, eval_batches, doc_prerank_mode, result_dir=None,
     return bleu_rouge
 
 
-def find_best_answer(self, sample, start_prob, end_prob, padded_p_len, para_prior_scores=None):
+def find_best_answer(args, sample, start_prob, end_prob, padded_p_len, para_prior_scores):
     """
     Finds the best answer for a sample given start_prob and end_prob for each position.
     This will call find_best_answer_for_passage because there are multiple passages in a sample
     """
     best_p_idx, best_span, best_score = None, None, 0
     for p_idx, passage in enumerate(sample['documents']):
-        if p_idx >= self.max_p_num:
+        if p_idx >= args.max_p_num:
             continue
-        passage_len = min(self.max_p_len, len(passage['segmented_passage']))
-        answer_span, score = self.find_best_answer_for_passage(
+        passage_len = min(args.max_p_len, len(passage['segmented_passage']))
+        answer_span, score = find_best_answer_for_passage(args,
             start_prob[p_idx * padded_p_len: (p_idx + 1) * padded_p_len],
             end_prob[p_idx * padded_p_len: (p_idx + 1) * padded_p_len],
             passage_len)
@@ -169,7 +182,7 @@ def find_best_answer(self, sample, start_prob, end_prob, padded_p_len, para_prio
     return best_answer, segmented_pred
 
 
-def find_best_answer_for_passage(self, start_probs, end_probs, passage_len=None):
+def find_best_answer_for_passage(args, start_probs, end_probs, passage_len=None):
     """
     Finds the best answer with the maximum start_prob * end_prob from a single passage
     """
@@ -179,7 +192,7 @@ def find_best_answer_for_passage(self, start_probs, end_probs, passage_len=None)
         passage_len = min(len(start_probs), passage_len)
     best_start, best_end, max_prob = -1, -1, 0
     for start_idx in range(passage_len):
-        for ans_len in range(self.max_a_len):
+        for ans_len in range(args.max_a_len):
             end_idx = start_idx + ans_len
             if end_idx >= passage_len:
                 continue
@@ -201,16 +214,10 @@ def ensemble():
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    if args.log_path:
-        file_handler = logging.FileHandler(args.log_path)
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-    else:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
     logger.info('Running with args: ')
     logger.info('*' * 100)
@@ -218,25 +225,40 @@ def ensemble():
         logger.info('   {}:\t{}'.format(k, v))
     logger.info('*' * 100)
 
-    predict_json = args.mpde + '.predicted.json'
+    # data_type 容易和 data files 不一致，此处判断下
+    for f in [args.dev_file, args.test_file]:
+        if args.data_type not in f:
+            raise ValueError('Inconsistency between data_type and files')
+    # 结果保存文件前缀
+    result_prefix = '{}.ensemble'.format(args.mode)
+
+    # 待预测文件
+    if args.mode == 'dev':
+        test_file = args.dev_file
+    else:
+        test_file = args.test_file
+
+    # 所有模型预测的结果文件
+    predict_json = args.mode + '.predicted.json'
     predict_test_files = [os.path.join(predict, 'cache/results/', args.data_type, predict_json)
                           for predict in args.model_predicts]
+    logger.info(predict_test_files)
 
     ensemble_data = EnsembleDataset(max_p_num=args.max_p_num,
                                     max_p_len=args.max_p_len,
                                     max_q_len=args.max_q_len,
                                     max_a_len=args.max_a_len,
-                                    test_file=args.test_file,
-                                    predict_test_files=predict_test_files,
-                                    predict_test_weights=args.model_weights)
+                                    test_file=test_file,
+                                    predicted_test_files=predict_test_files,
+                                    predicted_test_weights=args.model_weights)
     batch_generator = ensemble_data.gen_test_mini_batches(batch_size=128)
-    total_batch_count = ensemble_data.get_data_length() // args.batch_size + \
-                        int(ensemble_data.get_data_length() % args.batch_size != 0)
-    bleu_rouge = evaluate(total_batch_count, batch_generator, doc_prerank_mode=args.use_para_prior_scores,
-                          result_dir=args.result_dir, result_prefix=args.result_prefix)
+    total_batch_count = ensemble_data.get_data_length() // 128 + \
+                        int(ensemble_data.get_data_length() % 128 != 0)
+    bleu_rouge = evaluate(args, total_batch_count, batch_generator, doc_prerank_mode=args.use_para_prior_scores,
+                          result_dir=args.result_dir, result_prefix=result_prefix)
     if bleu_rouge:
         logger.info('Result on dev set: {}'.format(bleu_rouge))
-    logger.info('Predicted answers are saved to {}'.format(os.path.join(args.result_dir)))
+    logger.info('Predicted answers are saved to {}'.format(os.path.join(args.result_dir, result_prefix)))
 
 
 if __name__ == '__main__':

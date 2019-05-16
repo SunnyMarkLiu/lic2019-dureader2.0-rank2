@@ -25,15 +25,15 @@ class EnsembleDataset(object):
                  max_q_len,
                  max_a_len,
                  test_file,
-                 predict_test_files,
-                 predict_test_weights):
+                 predicted_test_files,
+                 predicted_test_weights):
         self.logger = logging.getLogger("brc")
         self.max_p_num = max_p_num
         self.max_p_len = max_p_len
         self.max_q_len = max_q_len
         self.max_a_len = max_a_len
 
-        self.test_set = self._load_dataset(test_file, predict_test_files, predict_test_weights)
+        self.test_set = self._load_dataset(test_file, predicted_test_files, predicted_test_weights)
 
     def get_data_length(self):
         return len(self.test_set)
@@ -51,8 +51,13 @@ class EnsembleDataset(object):
                 for line in f:
                     sample = json.loads(line.strip())
                     question_id = sample['question_id']
-                    start_prob = [ start * weight for start in sample['start_prob']]
-                    end_prob = [ end * weight for end in sample['end_prob']]
+                    start_sum = sum(sample['start_prob'])
+                    start_prob = [start / start_sum for start in sample['start_prob']]
+                    start_prob = [ start * weight for start in start_prob]
+
+                    end_sum = sum(sample['end_prob'])
+                    end_prob = [end / end_sum for end in sample['end_prob']]
+                    end_prob = [ end * weight for end in end_prob]
 
                     if question_id not in predict_start_probs:
                         predict_start_probs[question_id] = [start_prob]
@@ -109,6 +114,7 @@ class EnsembleDataset(object):
             end_probs.append(sample['end_prob'])
 
         batch_data = {'raw_data': batch_raw_data,
+                      'passage_length': [],
                       'start_probs': start_probs,
                       'end_probs': end_probs}
 
@@ -120,8 +126,8 @@ class EnsembleDataset(object):
         for sidx, sample in enumerate(batch_samples):
             for pidx in range(max_passage_num):
                 if pidx < len(sample['documents']):
-                    passage_token_ids = sample['documents'][pidx]['passage_token_ids']
-                    batch_data['passage_length'].append(min(len(passage_token_ids), self.max_p_len))
+                    segmented_passage = sample['documents'][pidx]['segmented_passage']
+                    batch_data['passage_length'].append(min(len(segmented_passage), self.max_p_len))
                 else:
                     batch_data['passage_length'].append(0)
 
