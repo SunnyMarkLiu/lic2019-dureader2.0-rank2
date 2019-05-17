@@ -17,6 +17,7 @@ from tqdm import tqdm
 from util.metric import normalize, compute_bleu_rouge
 from ensemble_dataset import EnsembleDataset
 from collections import defaultdict
+from answer_text_norm import AnswerNormer
 
 
 def parse_args():
@@ -29,12 +30,14 @@ def parse_args():
     parser.add_argument('--model_predicts', nargs='+',
                         # 模型顺序是dev分数最高的排在前面
                         default=[
-                            '../backup/tfmrc_5_15_new_vocab_59.25/',
-                            '../backup/tfmrc_5_14_rnet_dropout_58.76/',
-                            '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
-                            '../backup/tfmrc_5_13_rnet_58.47/',
-                            '../backup/tfmrc_5_10_58.2/',
                             '../backup/tfmrc_5_08_57.81/',
+                            '../backup/tfmrc_5_10_58.2/',
+                            '../backup/tfmrc_5_13_rnet_58.47/',
+                            '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
+                            '../backup/tfmrc_5_14_rnet_dropout_58.76/',
+                            '../backup/tfmrc_5_14_rnet_dropout_58.76_round2/',
+                            '../backup/tfmrc_5_15_new_vocab_59.25/',
+                            '../backup/tfmrc_5_15_new_vocab_59.25_round2/'
                             ],
                         help='list of files that current great models predicted')
     parser.add_argument('--mode', type=str, choices=['dev', 'test'],
@@ -51,10 +54,10 @@ def parse_args():
                         help='max length of answer')
 
     parser.add_argument('--dev_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
                         help='preprocessed test file')
     parser.add_argument('--test_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json',
                         help='preprocessed test file')
 
     parser.add_argument('--result_dir', default='./',
@@ -67,7 +70,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir=None, result_prefix=None,
+def evaluate(args, total_batch_count, eval_batches, answer_normer, doc_prerank_mode, result_dir=None, result_prefix=None,
              save_full_info=False):
     """
     Evaluates the model performance on eval_batches and results are saved if specified
@@ -75,6 +78,7 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
         args: arguments
         total_batch_count: total batch counts
         eval_batches: iterable batch data
+        answer_normer: predict answer normalizer
         doc_prerank_mode: document prerank scores
         result_dir: directory to save predicted answers, answers will not be saved if None
         result_prefix: prefix of the file for saving predicted answers,
@@ -109,11 +113,9 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
             # 针对每个模型预测的概率计算最佳的开始结束下标
             answer_phrase_score = defaultdict(float)
             for start_prob, end_prob in zip(start_probs, end_probs):
-                find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, pp_scores, answer_phrase_score)
+                find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, pp_scores, answer_phrase_score, answer_normer)
 
-            segmented_pred = max(answer_phrase_score.items(), key=lambda pair: pair[1])[0]
-            segmented_pred = segmented_pred.split('<split>')
-            best_answer = ''.join(segmented_pred)
+            best_answer = max(answer_phrase_score.items(), key=lambda pair: pair[1])[0]
 
             if save_full_info:
                 sample['pred_answers'] = [best_answer]
@@ -124,8 +126,7 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
                                      'answers': [best_answer],
                                      'entity_answers': [[]],
                                      'yesno_answers': [],
-                                     'segmented_question': sample['segmented_question'],
-                                     'segmented_answers': segmented_pred})
+                                     'segmented_question': sample['segmented_question']})
             if 'segmented_answers' in sample:
                 ref_answers.append({'question_id': sample['question_id'],
                                     'question_type': sample['question_type'],
@@ -155,7 +156,7 @@ def evaluate(args, total_batch_count, eval_batches, doc_prerank_mode, result_dir
     return bleu_rouge
 
 
-def find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, para_prior_scores, answer_phrase_score):
+def find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, para_prior_scores, answer_phrase_score, answer_normer):
     """
     Finds the best answer for a sample given start_prob and end_prob for each position.
     This will call find_best_answer_for_passage because there are multiple passages in a sample
@@ -171,10 +172,11 @@ def find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len
                                      p_idx,
                                      answer_phrase_score,
                                      passage['segmented_passage'],
+                                     answer_normer,
                                      passage_len)
 
 def find_best_answer_for_passage(args, start_probs, end_probs, para_prior_scores, p_idx, answer_phrase_score,
-                                 seg_passage, passage_len=None):
+                                 seg_passage, answer_normer, passage_len=None):
     """
     Finds the best answer with the maximum start_prob * end_prob from a single passage
     """
@@ -196,7 +198,9 @@ def find_best_answer_for_passage(args, start_probs, end_probs, para_prior_scores
 
     if para_prior_scores is not None:
         max_prob *= para_prior_scores[p_idx]
-    predict_answer = '<split>'.join(seg_passage[best_start: best_end + 1])
+
+    # norm 处理
+    predict_answer = answer_normer.norm_predict_answer(seg_passage[best_start: best_end + 1])
     answer_phrase_score[predict_answer] += max_prob
 
 def ensemble():
@@ -247,7 +251,17 @@ def ensemble():
                                     predicted_test_files=predict_test_files)
     batch_generator = ensemble_data.gen_test_mini_batches(batch_size=128)
     total_batch_count = ensemble_data.get_data_length() // 128 + int(ensemble_data.get_data_length() % 128 != 0)
-    bleu_rouge = evaluate(args, total_batch_count, batch_generator, doc_prerank_mode=args.use_para_prior_scores,
+
+    # 预测答案进行标准化
+    if 'test1' in args.test_file:
+        url_map_path = '../input/dureader_2.0_v5/url_mapping.csv'
+    elif 'test2' in args.test_file:
+        url_map_path = '../input/dureader_2.0_v5/url_mapping_test2.csv'
+    else:
+        raise ValueError('url id mapping file error!')
+    answer_normer = AnswerNormer(url_map_path=url_map_path)
+
+    bleu_rouge = evaluate(args, total_batch_count, batch_generator, answer_normer, doc_prerank_mode=args.use_para_prior_scores,
                           result_dir=args.result_dir, result_prefix=result_prefix)
     if bleu_rouge:
         logger.info('Result on dev set: {}'.format(bleu_rouge))

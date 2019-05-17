@@ -81,19 +81,11 @@ def post_process(pre_ans_list):
     return post_ans
 
 
-# 建立id2yesno字典
-id2yesno = {}
-int2str = {0: 'Yes', 1: 'No', 2: 'Depends'}
-with open('yesno模型预测结果.json') as fin:
-    for line in fin.readlines():
-        sample = json.loads(line.strip())
-        id2yesno[int(sample['question_id'])] = int2str[int(sample['yesno_pred'])]
-
 # ------------------- yesno answer -------------------
 # 建立id2yesno字典
 id2yesno = {}
 int2str = {0: 'Yes', 1: 'No', 2: 'Depends'}
-with open('yesno模型预测结果.json') as fin:
+with open('../yesno/yesno.test1.predicted.json') as fin:
     for line in fin.readlines():
         sample = json.loads(line.strip())
         id2yesno[int(sample['question_id'])] = int2str[int(sample['yesno_pred'])]
