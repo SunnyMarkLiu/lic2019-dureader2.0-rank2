@@ -24,13 +24,12 @@ def parse_args():
     """
     Parses command line arguments.
     """
-    parser = argparse.ArgumentParser(
-        description='Reading Comprehension on BaiduRC dataset')
+    parser = argparse.ArgumentParser(description='Reading Comprehension on BaiduRC dataset')
 
     parser.add_argument('--model_predicts', nargs='+',
                         # 模型顺序是dev分数最高的排在前面
                         default=[
-                            '../backup/tfmrc_5_08_57.81/',
+                            # '../backup/tfmrc_5_08_57.81/',
                             '../backup/tfmrc_5_10_58.2/',
                             '../backup/tfmrc_5_13_rnet_58.47/',
                             '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
@@ -54,10 +53,10 @@ def parse_args():
                         help='max length of answer')
 
     parser.add_argument('--dev_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
                         help='preprocessed test file')
     parser.add_argument('--test_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json',
                         help='preprocessed test file')
 
     parser.add_argument('--result_dir', default='./',
@@ -259,6 +258,7 @@ def ensemble():
         url_map_path = '../input/dureader_2.0_v5/url_mapping_test2.csv'
     else:
         raise ValueError('url id mapping file error!')
+    logger.info('using url id mapping file: {}'.format(url_map_path))
     answer_normer = AnswerNormer(url_map_path=url_map_path)
 
     bleu_rouge = evaluate(args, total_batch_count, batch_generator, answer_normer, doc_prerank_mode=args.use_para_prior_scores,
