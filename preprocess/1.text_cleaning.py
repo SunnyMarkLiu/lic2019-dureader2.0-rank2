@@ -20,10 +20,14 @@ from utils.jieba_util import WordSegmentPOSKeywordExtractor
 import warnings
 warnings.filterwarnings("ignore")
 
-data_version = 'dureader_2.0_v4'
+data_version = 'dureader_2.0_v5'
 
-jieba.load_userdict(f'../input/{data_version}/all_url_dict.txt')      # 抽取的entity和所有的 url 构成的词
-url_map_df = pd.read_csv(f'../input/{data_version}/url_mapping.csv', encoding='utf-8')
+# jieba.load_userdict(f'../input/{data_version}/all_url_dict.txt')      # 抽取的entity和所有的 url 构成的词
+# url_map_df = pd.read_csv(f'../input/{data_version}/url_mapping.csv', encoding='utf-8')
+
+jieba.load_userdict(f'../input/{data_version}/all_url_dict_test2.txt')      # 抽取的entity和所有的 url 构成的词
+url_map_df = pd.read_csv(f'../input/{data_version}/url_mapping_test2.csv', encoding='utf-8')
+
 url_map_dict = dict(zip(url_map_df['url'], url_map_df['url_map_id']))
 jieba_extractor = WordSegmentPOSKeywordExtractor()
 print('jieba prepared.')

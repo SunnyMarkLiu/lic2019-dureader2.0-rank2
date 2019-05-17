@@ -21,3 +21,9 @@ target_dir="../input/${data_version}/final_mrc_dataset/testset/"
 
 nohup cat ${source_dir}search.test1.json |python 6.generate_para_match_score_feature.py > ${target_dir}search.test1.json 2>&1 &
 nohup cat ${source_dir}zhidao.test1.json |python 6.generate_para_match_score_feature.py > ${target_dir}zhidao.test1.json 2>&1 &
+
+source_dir="../input/${data_version}/mrc_dataset/test2set/"
+target_dir="../input/${data_version}/final_mrc_dataset/test2set/"
+
+nohup cat ${source_dir}search.test2.json |python 6.generate_para_match_score_feature.py > ${target_dir}search.test2.json 2>&1 &
+nohup cat ${source_dir}zhidao.test2.json |python 6.generate_para_match_score_feature.py > ${target_dir}zhidao.test2.json 2>&1 &

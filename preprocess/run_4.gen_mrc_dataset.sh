@@ -57,3 +57,19 @@ nohup cat ${source_dir}split_search1_02 |python 4.gen_mrc_dataset.py > ${target_
 nohup cat ${source_dir}split_zhidao1_00 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao1_00 2>&1 &
 nohup cat ${source_dir}split_zhidao1_01 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao1_01 2>&1 &
 nohup cat ${source_dir}split_zhidao1_02 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao1_02 2>&1 &
+
+#------------------------ generate test2 mrc dataset ------------------------
+source_dir="../input/${data_version}/extracted/test2set/"
+target_dir="../input/${data_version}/mrc_dataset/test2set/"
+
+nohup cat ${source_dir}split_search_00 |python 4.gen_mrc_dataset.py > ${target_dir}split_search_00 2>&1 &
+nohup cat ${source_dir}split_search_01 |python 4.gen_mrc_dataset.py > ${target_dir}split_search_01 2>&1 &
+nohup cat ${source_dir}split_search_02 |python 4.gen_mrc_dataset.py > ${target_dir}split_search_02 2>&1 &
+nohup cat ${source_dir}split_search_03 |python 4.gen_mrc_dataset.py > ${target_dir}split_search_03 2>&1 &
+nohup cat ${source_dir}split_search_04 |python 4.gen_mrc_dataset.py > ${target_dir}split_search_04 2>&1 &
+
+nohup cat ${source_dir}split_zhidao_00 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao_00 2>&1 &
+nohup cat ${source_dir}split_zhidao_01 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao_01 2>&1 &
+nohup cat ${source_dir}split_zhidao_02 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao_02 2>&1 &
+nohup cat ${source_dir}split_zhidao_03 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao_03 2>&1 &
+nohup cat ${source_dir}split_zhidao_04 |python 4.gen_mrc_dataset.py > ${target_dir}split_zhidao_04 2>&1 &

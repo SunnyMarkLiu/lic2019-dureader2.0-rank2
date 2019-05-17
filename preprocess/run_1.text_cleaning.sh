@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-data_version='dureader_2.0_v4'
+data_version='dureader_2.0_v5'
 
 #------------------------ train raw data ------------------------
 source_raw_dir="../input/${data_version}/raw/trainset/"
@@ -58,3 +58,19 @@ nohup cat ${source_raw_dir}split_search1_02 |python 1.text_cleaning.py > ${targe
 nohup cat ${source_raw_dir}split_zhidao1_00 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao1_00 2>&1 &
 nohup cat ${source_raw_dir}split_zhidao1_01 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao1_01 2>&1 &
 nohup cat ${source_raw_dir}split_zhidao1_02 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao1_02 2>&1 &
+
+#------------------------ test2 raw data ------------------------
+source_raw_dir="../input/${data_version}/raw/test2set/"
+target_cleaned_dir="../input/${data_version}/cleaned/test2set/"
+
+nohup cat ${source_raw_dir}split_search_00 |python 1.text_cleaning.py > ${target_cleaned_dir}split_search_00 2>&1 &
+nohup cat ${source_raw_dir}split_search_01 |python 1.text_cleaning.py > ${target_cleaned_dir}split_search_01 2>&1 &
+nohup cat ${source_raw_dir}split_search_02 |python 1.text_cleaning.py > ${target_cleaned_dir}split_search_02 2>&1 &
+nohup cat ${source_raw_dir}split_search_03 |python 1.text_cleaning.py > ${target_cleaned_dir}split_search_03 2>&1 &
+nohup cat ${source_raw_dir}split_search_04 |python 1.text_cleaning.py > ${target_cleaned_dir}split_search_04 2>&1 &
+
+nohup cat ${source_raw_dir}split_zhidao_00 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao_00 2>&1 &
+nohup cat ${source_raw_dir}split_zhidao_01 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao_01 2>&1 &
+nohup cat ${source_raw_dir}split_zhidao_02 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao_02 2>&1 &
+nohup cat ${source_raw_dir}split_zhidao_03 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao_03 2>&1 &
+nohup cat ${source_raw_dir}split_zhidao_04 |python 1.text_cleaning.py > ${target_cleaned_dir}split_zhidao_04 2>&1 &
