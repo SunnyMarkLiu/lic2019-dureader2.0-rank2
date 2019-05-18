@@ -29,19 +29,20 @@ def parse_args():
     parser.add_argument('--model_predicts', nargs='+',
                         # 模型顺序是dev分数最高的排在前面
                         default=[
-                            # '../backup/tfmrc_5_08_57.81/',
+                            '../backup/tfmrc_5_08_57.81/',
                             '../backup/tfmrc_5_10_58.2/',
                             '../backup/tfmrc_5_13_rnet_58.47/',
-                            '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
+                            # '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
                             '../backup/tfmrc_5_14_rnet_dropout_58.76/',
-                            '../backup/tfmrc_5_14_rnet_dropout_58.76_round2/',
-                            '../backup/tfmrc_5_15_new_vocab_59.25/',
-                            '../backup/tfmrc_5_15_new_vocab_59.25_round2/'
+                            # '../backup/tfmrc_5_14_rnet_dropout_58.76_round2/',
+                            # '../backup/tfmrc_5_15_new_vocab_59.25/',
+                            '../backup/tfmrc_5_15_new_vocab_59.25_round2/',
+                            '../backup/tfmrc_5_16_full_datas_pretrain_58.62_round2/'
                             ],
                         help='list of files that current great models predicted')
-    parser.add_argument('--mode', type=str, choices=['dev', 'test'],
+    parser.add_argument('--mode', type=str, choices=['dev', 'test', 'test2'],
                         help='ensemble for dev or test')
-    parser.add_argument('--data_type', type=str,
+    parser.add_argument('--data_type', type=str, choices=['search', 'zhidao'],
                         help='the type of the data, search or zhidao')
     parser.add_argument('--max_p_num', type=int, default=5,
                         help='max passage num in one sample')
@@ -53,10 +54,13 @@ def parse_args():
                         help='max length of answer')
 
     parser.add_argument('--dev_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/search.dev.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
                         help='preprocessed test file')
     parser.add_argument('--test_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/search.test1.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json',
+                        help='preprocessed test file')
+    parser.add_argument('--test2_file', type=str,
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/test2set/zhidao.test2.json',
                         help='preprocessed test file')
 
     parser.add_argument('--result_dir', default='./',
@@ -114,7 +118,10 @@ def evaluate(args, total_batch_count, eval_batches, answer_normer, doc_prerank_m
             for start_prob, end_prob in zip(start_probs, end_probs):
                 find_best_answer_for_sample(args, sample, start_prob, end_prob, padded_p_len, pp_scores, answer_phrase_score, answer_normer)
 
-            best_answer = max(answer_phrase_score.items(), key=lambda pair: pair[1])[0]
+            if len(answer_phrase_score) > 0:
+                best_answer = max(answer_phrase_score.items(), key=lambda pair: pair[1])[0]
+            else:
+                best_answer = ''
 
             if save_full_info:
                 sample['pred_answers'] = [best_answer]
@@ -199,8 +206,9 @@ def find_best_answer_for_passage(args, start_probs, end_probs, para_prior_scores
         max_prob *= para_prior_scores[p_idx]
 
     # norm 处理
-    predict_answer = answer_normer.norm_predict_answer(seg_passage[best_start: best_end + 1])
-    answer_phrase_score[predict_answer] += max_prob
+    if best_start >= 0 and best_end < len(seg_passage):
+        predict_answer = answer_normer.norm_predict_answer(seg_passage[best_start: best_end + 1])
+        answer_phrase_score[predict_answer] += max_prob
 
 def ensemble():
     """
@@ -224,23 +232,25 @@ def ensemble():
     logger.info('*' * 100)
 
     # data_type 容易和 data files 不一致，此处判断下
-    for f in [args.dev_file, args.test_file]:
+    for f in [args.dev_file, args.test_file, args.test2_file]:
         if args.data_type not in f:
             raise ValueError('Inconsistency between data_type and files')
-    # 结果保存文件前缀
-    result_prefix = '{}.{}.ensemble'.format(args.data_type, args.mode)
 
     # 待预测文件
     if args.mode == 'dev':
         test_file = args.dev_file
-    else:
+    elif args.mode == 'test':
         test_file = args.test_file
+    elif args.mode == 'test2':
+        test_file = args.test2_file
+    else:
+        raise ValueError('Inconsistency between mode and test file')
+    logger.info('test file: {}'.format(test_file))
 
     # 所有模型预测的结果文件
     predict_json = args.mode + '.predicted.json'
-    predict_test_files = [os.path.join(predict, 'cache/results/', args.data_type, predict_json)
-                          for predict in args.model_predicts]
-    logger.info(predict_test_files)
+    predict_test_files = [os.path.join(predict, 'cache/results/', args.data_type, predict_json) for predict in args.model_predicts]
+    logger.info('ensemble model predicted results: {}'.format(predict_test_files))
 
     ensemble_data = EnsembleDataset(max_p_num=args.max_p_num,
                                     max_p_len=args.max_p_len,
@@ -252,20 +262,24 @@ def ensemble():
     total_batch_count = ensemble_data.get_data_length() // 128 + int(ensemble_data.get_data_length() % 128 != 0)
 
     # 预测答案进行标准化
-    if 'test1' in args.test_file:
+    if args.mode == 'dev' or args.mode == 'test':
         url_map_path = '../input/dureader_2.0_v5/url_mapping.csv'
-    elif 'test2' in args.test_file:
+    elif args.mode == 'test2':
         url_map_path = '../input/dureader_2.0_v5/url_mapping_test2.csv'
     else:
         raise ValueError('url id mapping file error!')
     logger.info('using url id mapping file: {}'.format(url_map_path))
     answer_normer = AnswerNormer(url_map_path=url_map_path)
 
+    # 结果保存文件前缀
+    result_prefix = '{}.{}.ensemble'.format(args.data_type, args.mode)
+    logger.info('Predicted answers will be saved to {}'.format(os.path.join(args.result_dir, result_prefix)))
+
     bleu_rouge = evaluate(args, total_batch_count, batch_generator, answer_normer, doc_prerank_mode=args.use_para_prior_scores,
                           result_dir=args.result_dir, result_prefix=result_prefix)
     if bleu_rouge:
         logger.info('Result on dev set: {}'.format(bleu_rouge))
-    logger.info('Predicted answers are saved to {}'.format(os.path.join(args.result_dir, result_prefix)))
+    logger.info('done.')
 
 
 if __name__ == '__main__':

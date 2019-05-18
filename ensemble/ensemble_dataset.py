@@ -46,6 +46,7 @@ class EnsembleDataset(object):
         predict_end_probs = {}
 
         for predict_file in predict_test_files:
+            self.logger.info('load {}'.format(predict_file))
             with open(predict_file, 'r') as f:
                 for line in f:
                     sample = json.loads(line.strip())
@@ -63,6 +64,7 @@ class EnsembleDataset(object):
                     else:
                         predict_end_probs[question_id].append(end_prob)
 
+        self.logger.info('load test file from {}'.format(data_path))
         with io.open(data_path, 'r', encoding='utf-8') as fin:
             data_set = []
             for lidx, line in enumerate(fin):
