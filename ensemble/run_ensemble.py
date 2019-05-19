@@ -29,9 +29,9 @@ def parse_args():
     parser.add_argument('--model_predicts', nargs='+',
                         # 模型顺序是dev分数最高的排在前面
                         default=[
-                            '../backup/tfmrc_5_08_57.81/',
+                            # '../backup/tfmrc_5_08_57.81/',
                             '../backup/tfmrc_5_10_58.2/',
-                            '../backup/tfmrc_5_13_rnet_58.47/',
+                            # '../backup/tfmrc_5_13_rnet_58.47/',
                             # '../backup/tfmrc_5_16_full_datas_pretrain_58.62/',
                             '../backup/tfmrc_5_14_rnet_dropout_58.76/',
                             # '../backup/tfmrc_5_14_rnet_dropout_58.76_round2/',
@@ -54,13 +54,13 @@ def parse_args():
                         help='max length of answer')
 
     parser.add_argument('--dev_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/zhidao.dev.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/devset/{}.{}.json',
                         help='preprocessed test file')
     parser.add_argument('--test_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/zhidao.test1.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/testset/{}.{}.json',
                         help='preprocessed test file')
     parser.add_argument('--test2_file', type=str,
-                        default='../input/dureader_2.0_v5/final_mrc_dataset/test2set/zhidao.test2.json',
+                        default='../input/dureader_2.0_v5/final_mrc_dataset/test2set/{}.{}.json',
                         help='preprocessed test file')
 
     parser.add_argument('--result_dir', default='./',
@@ -231,18 +231,13 @@ def ensemble():
         logger.info('   {}:\t{}'.format(k, v))
     logger.info('*' * 100)
 
-    # data_type 容易和 data files 不一致，此处判断下
-    for f in [args.dev_file, args.test_file, args.test2_file]:
-        if args.data_type not in f:
-            raise ValueError('Inconsistency between data_type and files')
-
     # 待预测文件
     if args.mode == 'dev':
-        test_file = args.dev_file
+        test_file = args.dev_file.format(args.data_type, args.mode)
     elif args.mode == 'test':
-        test_file = args.test_file
+        test_file = args.test_file.format(args.data_type, args.mode + '1')
     elif args.mode == 'test2':
-        test_file = args.test2_file
+        test_file = args.test2_file.format(args.data_type, args.mode)
     else:
         raise ValueError('Inconsistency between mode and test file')
     logger.info('test file: {}'.format(test_file))
