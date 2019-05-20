@@ -8,6 +8,7 @@
 @time  : 2019/5/17 23:06
 """
 import pandas as pd
+# from html.parser import HTMLParser
 
 
 class AnswerNormer(object):
@@ -23,11 +24,16 @@ class AnswerNormer(object):
                        '\f', '\n', '\r', '\t', '\v', '&#160;', '&nbsp;',
                        '\u200b', '\u200e', '\u202a', '\u202c', '\ufeff', '\uf0d8', '\u2061', '\u1680', '\u180e',
                        '\u2000', '\u2001', '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008',
-                       '\u2009', '\u200a', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000'}
+                       '\u2009', '\u200a', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000', '\u0005', '\u0006',
+                       '\u0007', '\u0008', '\u0009' '\\x091摘录', '\\x092摘录', '\\x093摘录', '\\x094摘录',
+                       '\\x095摘录', '\\x096摘录', '\\x097摘录', '\\x098摘录','\\x099摘录', '\\x09',
+                       '\\x0b', '\\x0c', '&#39;', '&#39', '&#187;', '\\x09'}
+        # self.html_parser = HTMLParser()
 
     def _remove_space(self, text):
         for space in self.spaces:
-            text = text.replace(space, '')
+            text = text.replace(space, '')  # TODO:' '   …  ' - '
+        # text = self.html_parser.unescape(text)
         text = text.strip()
         return text
 
@@ -55,7 +61,8 @@ class AnswerNormer(object):
             .replace(',,', ',').replace(';;', ';').replace('!.', '.') \
             .replace('哈哈,', '').replace('哈哈.', '').replace('哈哈!', '').replace('哈哈', '') \
             .replace('呵呵,', '').replace('呵呵.', '').replace('呵呵!', '').replace('哈哈', '') \
-            .replace('是是', '').replace('的的', '的')
+            .replace('是是', '').replace('的的', '的').replace('…', '').replace(' - ', '-')\
+            .replace('..', '.').replace('..', '.')
 
         # 字符串替换处理
         post_ans = self._remove_space(pre_ans)
