@@ -1,12 +1,12 @@
 # lic2019-dureader2.0-rank2
-2019语言与智能技术竞赛-DuReader2.0 机器阅读理解赛道 Rank2 解决方案，未采用 BERT 预训练模型。
+The Rank2 solution (**no-BERT**) of [2019 Language and Intelligence Challenge - DuReader2.0 Machine Reading Comprehension](http://lic2019.ccf.org.cn/read).
 
 ## Architecture
-![](architecture.png)
+![](architecture.png =250x250)
 
-系统主要包括：
-- Text Preprocess：文本数据清洗、段落筛选。
-- Multi-Task Learning Comprehension Model：基于多任务的阅读理解模型
+Our MRC system answer questions in two steps：
+- Text Preprocess：where documents are preprocessed and relevant paragraphs to the question are retrieved.
+- Multi-Task Learning Comprehension Model：where the question and retrieved articles are processed to derive answers.
 
 ## Text Preprocess
 1. Text Cleaning
@@ -24,7 +24,7 @@ After per- forming text cleaning, the word coverage increased from 42.60% to 56.
 - Finally, we concatenate all paragraphs to form a clean and related context, and truncate to the maximum length.
 
 ## Multi-Task Learning Comprehension Model
-![](mrc_model.png)
+![](mrc_model.png =250x250)
 
 ## Features
 - Word-level embedding: Use pretrained word embeddings to map each word to its corresponding n-dimensional embedding vector 𝑤5. As the vocabulary size is very big and there exists many out of the vocabulary words, the embedding matrix would be so big that almost all parameters of the model come from the embedding matrix. We filter the words that occur less than 2 count and map these words to <UNK> word, and just train the embeddings of the <UNK>. This method reduces the vocab- ulary size and increases the word coverage a lot, therefore often improves the effec- tiveness of training.
@@ -34,7 +34,7 @@ After per- forming text cleaning, the word coverage increased from 42.60% to 56.
 - Question category feature: We use some rules to classify the problem into coarse- grained and fine-grained categories. The coarse-grained categories include Entity, Description and YesNo. The fine-grained categories include When, What, Who, Where, Why, How, How long, Rank, Solution and etc. Each category is mapped to a m-dimensional embedding
 
 ## Experiment
-![](experiment.png)
+![](experiment.png =250x250)
 
 ## How to use
 1. Preprocess the text and generate MRC dataset.
@@ -51,7 +51,6 @@ sh run_6.generate_para_match_score_feature.sh
 2. Training the MRC model
 ```bash
 cd ../tfmrc/
-
 nohup python run.py --train --gpu 3 --desc 'data_v5' --train_answer_len_cut_bins 6 \
                     --max_a_len 400 --use_oov2unk false --trainable_oov_cnt_threshold 300 \
                     --rnn_dropout_keep_prob 1 --fuse_dropout_keep_prob 1 --weight_decay 0.00003 \
