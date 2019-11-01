@@ -3,7 +3,7 @@ The Rank2 solution (**no-BERT**) of [2019 Language and Intelligence Challenge - 
 
 ## Architecture
 <p align="center">
-<img src="architecture.png" width="70%">
+<img src="architecture.png" width="60%">
 </p>
 
 Our MRC system answer questions in two steps：
@@ -65,7 +65,7 @@ nohup python run.py --train --gpu 3 --desc 'data_v5' --train_answer_len_cut_bins
 ```
 
 ## Teammates
-Lucky Boys
+**Lucky Boys**
 - [QingLiu](https://github.com/SunnyMarkLiu)
 - [ZiqiangYing](https://github.com/YingZiqiang)
 
