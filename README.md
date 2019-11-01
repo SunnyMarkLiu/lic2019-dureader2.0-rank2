@@ -11,7 +11,7 @@ Our MRC system answer questions in two steps：
 - Multi-Task Learning Comprehension Model：where the question and retrieved articles are processed to derive answers.
 
 ## Text Preprocess
-1. Text Cleaning
+### 1. Text Cleaning
 - We segment the raw text into list of words using Jieba, an opensource Chinese word segmentation tool. The important point is that original DuReader dataset con- tains many URLs, directly segment these URLs will increase the vocabulary size dramatically, and many of these words don’t have pretrained word embeddings. So we retrieve these URLs from original raw documents and build a URL mapping dictionary, and add this URLs to the custom dictionary of Jieba. So these URLs will participate in word segmentation as a whole. This method increase the word cover- age of the pretrained word embeddings, simple yet powerful.
 - We remove the html tags and website name for the title of document, and remove the html tags when the document is not about a programming language.
 - Original document may contains some oral text, while the labeled answer don’t have these noisy text. So we correct some misspelled words according to words that out of the pretrained vocabulary. And we remove some specific text like duplicate words or punctuations according to the regular expressions.
@@ -19,7 +19,7 @@ Our MRC system answer questions in two steps：
 
 After per- forming text cleaning, the word coverage increased from 42.60% to 56.08% for Zhidao dataset and increased from 38.79% to 54.36% for Search dataset respectively.
 
-2. Paragraph Selection
+### 2. Paragraph Selection
 - The title of the document is extracted, not only the title is relevant to the document, but some titles contain the answers.
 - For each document, we calculate the match score between paragraph and question. The first solution to last year's DuReader competition was to just calculate the BLEU-4 score, in this paper, we calculate the BLEU-4 and F1 score, and combine them using different weights.
 - We arrange paragraphs in descending order of match score and ascending order of paragraph length. Baseline system of DuReader just select top K(K=3) paragraphs, maybe the passage where the answer lies has been screened out. We concatenate the arranged paragraphs until reach the predefined maximum length.
