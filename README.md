@@ -2,7 +2,7 @@
 The Rank2 solution (**no-BERT**) of [2019 Language and Intelligence Challenge - DuReader2.0 Machine Reading Comprehension](http://lic2019.ccf.org.cn/read).
 
 ## Architecture
-![](architecture.png =250x250)
+<img src="architecture.png" width="50%" height="50%">
 
 Our MRC system answer questions in two steps：
 - Text Preprocess：where documents are preprocessed and relevant paragraphs to the question are retrieved.
@@ -24,7 +24,7 @@ After per- forming text cleaning, the word coverage increased from 42.60% to 56.
 - Finally, we concatenate all paragraphs to form a clean and related context, and truncate to the maximum length.
 
 ## Multi-Task Learning Comprehension Model
-![](mrc_model.png =250x250)
+<img src="mrc_model.png" width="50%" height="50%">
 
 ## Features
 - Word-level embedding: Use pretrained word embeddings to map each word to its corresponding n-dimensional embedding vector 𝑤5. As the vocabulary size is very big and there exists many out of the vocabulary words, the embedding matrix would be so big that almost all parameters of the model come from the embedding matrix. We filter the words that occur less than 2 count and map these words to <UNK> word, and just train the embeddings of the <UNK>. This method reduces the vocab- ulary size and increases the word coverage a lot, therefore often improves the effec- tiveness of training.
@@ -34,7 +34,7 @@ After per- forming text cleaning, the word coverage increased from 42.60% to 56.
 - Question category feature: We use some rules to classify the problem into coarse- grained and fine-grained categories. The coarse-grained categories include Entity, Description and YesNo. The fine-grained categories include When, What, Who, Where, Why, How, How long, Rank, Solution and etc. Each category is mapped to a m-dimensional embedding
 
 ## Experiment
-![](experiment.png =250x250)
+<img src="experiment.png" width="50%" height="50%">
 
 ## How to use
 1. Preprocess the text and generate MRC dataset.
